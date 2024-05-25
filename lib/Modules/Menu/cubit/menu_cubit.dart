@@ -1,13 +1,11 @@
 import 'package:bloc/bloc.dart';
-import 'package:meta/meta.dart';
 
 part 'menu_state.dart';
 
 class MenuCubit extends Cubit<MenuState> {
-  MenuCubit() : super(MenuState(MenuItem.config));
+  MenuCubit() : super(MenuState(MenuItem.home));
 
   void setMenu(MenuItem menu) {
-    state.menu = menu;
-    emit(state);
+    emit(MenuState(menu));
   }
 }

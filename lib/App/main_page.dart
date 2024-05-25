@@ -1,5 +1,5 @@
-import 'package:beat_cinema/Config/config_page.dart';
-import 'package:beat_cinema/Menu/cubit/menu_cubit.dart';
+import 'package:beat_cinema/Modules/Config/config_page.dart';
+import 'package:beat_cinema/Modules/Menu/cubit/menu_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -13,6 +13,8 @@ class MainPage extends StatelessWidget {
         switch (state.menu) {
           case MenuItem.config:
             return const ConfigPage();
+          case MenuItem.home:
+            return const Text("home");
           default:
           return const ConfigPage();
         }
