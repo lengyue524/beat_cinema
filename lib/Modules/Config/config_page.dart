@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/Common/constants.dart';
-import 'package:beat_cinema/Modules/Config/bloc/config_bloc.dart';
+import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,13 +17,13 @@ class ConfigPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(left: 16, right: 16),
       children: [
-        BlocBuilder<ConfigBloc, ConfigInitial>(builder: (context, state) {
+        BlocBuilder<AppBloc, AppState>(builder: (context, state) {
           return SizedBox(
             height: 48,
             child: Row(children: [
               Expanded(
                   child: Text(
-                      "${AppLocalizations.of(context)?.beat_saber_dir}${state.beatSaberPath}",
+                      "${AppLocalizations.of(context)?.beat_saber_dir}${(state as AppLaunchComplated).beatSaberPath}",
                       style: Theme.of(context).textTheme.bodyMedium)),
               ElevatedButton(
                   onPressed: () async {
@@ -37,8 +37,8 @@ class ConfigPage extends StatelessWidget {
                     if (beatSaberExeExists) {
                       if (context.mounted) {
                         context
-                            .read<ConfigBloc>()
-                            .add(BeatSaberFolderSetted(beatSaberDir));
+                            .read<AppBloc>()
+                            .add(AppBeatSaverPathUpdateEvent(beatSaberDir));
                       }
                     } else {
                       if (context.mounted) {
@@ -58,6 +58,28 @@ class ConfigPage extends StatelessWidget {
           height: 48,
           child: Row(
             children: [
+              const Expanded(child: Text("data")),
+              BlocBuilder<AppBloc, AppState>(
+                builder: (context, state) {
+                  return ElevatedButton(
+                      onPressed: (state as AppLaunchComplated).beatSaberPath == null ||
+                              state.beatSaberPath!.isEmpty
+                          ? null
+                          : () {
+                              context.read<CustomLevelsBloc>().add(
+                                  ReloadCustomLevelsEvent(
+                                      state.beatSaberPath!));
+                            },
+                      child: Text("刷新歌单", style: Theme.of(context).textTheme.bodyMedium,));
+                },
+              )
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: Row(
+            children: [
               Expanded(
                   child: Text("${AppLocalizations.of(context)?.languages}")),
               BlocBuilder<AppBloc, AppState>(
@@ -72,8 +94,9 @@ class ConfigPage extends StatelessWidget {
                             value: e, child: Text(e.name));
                       }).toList(),
                       onChanged: (e) {
-                        AppBloc.saveAppLocal(e!);
-                        context.read<AppBloc>().add(AppLoadComplatedEvent(e));
+                        if (e != null) {
+                          context.read<AppBloc>().add(AppLocalUpdateEvent(e));
+                        }
                       });
                 },
               )

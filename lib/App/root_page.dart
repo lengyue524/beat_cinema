@@ -8,13 +8,7 @@ class RootPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: const Text("BeatCinema"),
-        ),
-        // body: Expanded(child: MainPage()),
-        body: BlocBuilder<MenuCubit, MenuState>(
+    return BlocBuilder<MenuCubit, MenuState>(
           builder: (context, state) {
             return Row(
               children: [
@@ -43,8 +37,6 @@ class RootPage extends StatelessWidget {
               ],
             );
           },
-        )
-        // drawer: MenuPage(),
         );
   }
 }
