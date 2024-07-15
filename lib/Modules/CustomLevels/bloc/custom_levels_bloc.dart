@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:beat_cinema/Common/constants.dart';
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Modules/CustomLevels/level_info.dart';
 import 'package:beat_cinema/models/cinema_config/cinema_config.dart';
 import 'package:beat_cinema/models/custom_level/custom_level.dart';
@@ -46,7 +47,7 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
           }
           customLevels.add(levelInfo);
         } catch (e) {
-          print(e);
+          log.shout(e);
         }
       }
     }

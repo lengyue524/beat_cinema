@@ -4,8 +4,13 @@ import 'package:beat_cinema/Modules/Menu/cubit/menu_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:logging/logging.dart';
 
 void main() {
+  Logger.root.level = Level.ALL; // defaults to Level.INFO
+  Logger.root.onRecord.listen((record) {
+    print('${record.level.name}: ${record.time}: ${record.message}');
+  });
   runApp(MyApp());
 }
 
@@ -23,7 +28,7 @@ class MyApp extends StatelessWidget {
           return MaterialApp.router(
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
-                  seedColor: Color.fromARGB(255, 123, 0, 255)),
+                  seedColor: const Color.fromARGB(255, 123, 0, 255)),
               useMaterial3: true,
             ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,

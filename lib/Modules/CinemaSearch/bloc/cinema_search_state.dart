@@ -7,4 +7,7 @@ final class CinemaSearchInitial extends CinemaSearchState {}
 
 final class CinemaSearchLoading extends CinemaSearchState {}
 
-final class CinemaSearchLoaded extends CinemaSearchState {}
+final class CinemaSearchLoaded extends CinemaSearchState {
+  CinemaSearchLoaded({required this.videoInfos});
+  final List<DlpVideoInfo> videoInfos;
+}

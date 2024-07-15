@@ -40,6 +40,7 @@ dependencies:
   go_router: ^14.1.4
   intl: ^0.19.0
   json_annotation: ^4.9.0
+  logging: ^1.2.0
   meta: ^1.11.0
   shared_preferences: ^2.2.3
   sprintf: ^7.0.0

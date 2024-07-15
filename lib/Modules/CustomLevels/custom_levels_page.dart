@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:beat_cinema/App/Route/app_route.dart';
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,9 +27,12 @@ class CustomLevelsPage extends StatelessWidget {
 
   // 检查beat saber目录是否设置，并且加载
   void loadCustomLevels(BuildContext context) {
-    var beatSaberPath = (context.read<AppBloc>().state as AppLaunchComplated).beatSaberPath;
+    var beatSaberPath =
+        (context.read<AppBloc>().state as AppLaunchComplated).beatSaberPath;
     if (beatSaberPath != null) {
-      context.read<CustomLevelsBloc>().add(ReloadCustomLevelsEvent(beatSaberPath));
+      context
+          .read<CustomLevelsBloc>()
+          .add(ReloadCustomLevelsEvent(beatSaberPath));
     }
   }
 
@@ -63,9 +67,10 @@ class CustomLevelsPage extends StatelessWidget {
                         IconButton(
                             onPressed: () {
                               if (state.levels[index].cinemaConfig == null) {
-                                context.push(RoutePath.homeSearch);
+                                context.push(RoutePath.homeSearch,
+                                    extra: state.levels[index]);
                               } else {
-                                print("ciname编辑");
+                                log.info("ciname编辑");
                               }
                             },
                             icon: Icon(state.levels[index].cinemaConfig == null

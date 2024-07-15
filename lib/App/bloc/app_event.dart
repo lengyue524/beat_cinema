@@ -6,7 +6,8 @@ enum AppLocal { en, zh }
 sealed class AppEvent {}
 
 final class AppLoadComplatedEvent extends AppEvent {
-  AppLoadComplatedEvent(this.local, this.beatSaberPath,this.cinemaSearchPlatform);
+  AppLoadComplatedEvent(
+      this.local, this.beatSaberPath, this.cinemaSearchPlatform);
   final AppLocal local;
   final String? beatSaberPath;
   final CinemaSearchPlatform cinemaSearchPlatform;

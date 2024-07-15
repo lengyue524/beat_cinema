@@ -62,15 +62,19 @@ class ConfigPage extends StatelessWidget {
               BlocBuilder<AppBloc, AppState>(
                 builder: (context, state) {
                   return ElevatedButton(
-                      onPressed: (state as AppLaunchComplated).beatSaberPath == null ||
-                              state.beatSaberPath!.isEmpty
-                          ? null
-                          : () {
-                              context.read<CustomLevelsBloc>().add(
-                                  ReloadCustomLevelsEvent(
-                                      state.beatSaberPath!));
-                            },
-                      child: Text("刷新歌单", style: Theme.of(context).textTheme.bodyMedium,));
+                      onPressed:
+                          (state as AppLaunchComplated).beatSaberPath == null ||
+                                  state.beatSaberPath!.isEmpty
+                              ? null
+                              : () {
+                                  context.read<CustomLevelsBloc>().add(
+                                      ReloadCustomLevelsEvent(
+                                          state.beatSaberPath!));
+                                },
+                      child: Text(
+                        "刷新歌单",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ));
                 },
               )
             ],

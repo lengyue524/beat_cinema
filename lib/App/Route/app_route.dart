@@ -1,7 +1,9 @@
 import 'package:beat_cinema/App/root_page.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/cinema_search_page.dart';
 import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
+import 'package:beat_cinema/Modules/CustomLevels/level_info.dart';
 import 'package:beat_cinema/Modules/Menu/cubit/menu_cubit.dart';
+import 'package:beat_cinema/models/custom_level/custom_level.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,16 +14,19 @@ class RoutePath {
 }
 
 class AppRouter {
-
   GoRouter appRouter() {
     return GoRouter(initialLocation: RoutePath.home, routes: [
       ShellRoute(
           builder: (context, state, child) {
             return Scaffold(
                 appBar: AppBar(
-                  leading: state.fullPath == RoutePath.home? null:  IconButton(onPressed: () {
-                    context.pop();
-                  }, icon: const Icon(Icons.arrow_back)),
+                  leading: state.fullPath == RoutePath.home
+                      ? null
+                      : IconButton(
+                          onPressed: () {
+                            context.pop();
+                          },
+                          icon: const Icon(Icons.arrow_back)),
                   backgroundColor: Theme.of(context).colorScheme.inversePrimary,
                   title: const Text("BeatCinema"),
                 ),
@@ -46,7 +51,13 @@ class AppRouter {
             GoRoute(
               path: RoutePath.homeSearch,
               builder: (context, state) {
-                return const CinemaSearchPage();
+                LevelInfo levelInfo;
+                if (state.extra is String) {
+                  levelInfo = LevelInfo.fromJson(state.extra as String);
+                } else {
+                  levelInfo = state.extra as LevelInfo;
+                }
+                return CinemaSearchPage(levelInfo: levelInfo);
               },
             )
           ])
