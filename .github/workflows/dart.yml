@@ -25,10 +25,10 @@ jobs:
         shell: pwsh
         run: |
           if ($env:RUNNER_OS -eq "Windows") {
-            7z a test.zip my_folder 
+            7z a BeatCinema.zip build\windows\x64\runner\Release 
           }
           else {
-            zip -r test.zip my_folder
+            zip -r BeatCinema.zip build\windows\x64\runner\Release
           }
       # - name: Artifact
       #   uses: actions/upload-artifact@v4
