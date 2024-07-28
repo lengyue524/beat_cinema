@@ -7,9 +7,8 @@ name: BeatCinema
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags:
+      - "v*.*.*"
 
 jobs:
   main:
@@ -22,8 +21,17 @@ jobs:
         with:
           channel: stable
       - run: flutter build windows
-      - name: Artifact
-        uses: actions/upload-artifact@v4
+      - name: Zip Release
+        uses: montudor/action-zip@v1
         with:
-          name: BeatCinema
-          path: build\windows\x64\runner\Release
+          args: zip -qq -r BeatCinema.zip build\windows\x64\runner\Release
+      # - name: Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: BeatCinema
+      #     path: build\windows\x64\runner\Release
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: BeatCinema.zip
