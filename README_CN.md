@@ -24,6 +24,12 @@ ModAssistant下载的版本较低，请更新yt-dlp到最新版本
 
 我测试过的版本2024.04.09
 
+# TODO
+
+- [ ] Cinema 视频播放偏移设置
+- [ ] Playlist列表
+
+
 # yt-dlp配置
 
 如果需要自定义yt-dlp配置，请在BeatSaber游戏目录下`UserData\yt-dlp.conf`文件中添加配置

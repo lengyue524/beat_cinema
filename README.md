@@ -22,6 +22,11 @@ The version downloaded by ModAssistant is relatively low. Please update yt-dlp t
 
 The version I have tested: 2024.04.09
 
+# TODO
+
+- [ ] Cinema Video Playback Offset Settings
+- [ ] Playlist List
+
 # yt-dlp Configuration
 
 If you need to customize yt-dlp configuration, please add the configuration to the `UserData\yt-dlp.conf` file in the BeatSaber game directory.
