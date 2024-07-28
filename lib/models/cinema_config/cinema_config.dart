@@ -6,6 +6,7 @@ import 'screen_position.dart';
 
 class CinemaConfig {
   String? videoId;
+  String? videoUrl;
   String? title;
   String? author;
   String? videoFile;
@@ -20,6 +21,7 @@ class CinemaConfig {
 
   CinemaConfig({
     this.videoId,
+    this.videoUrl,
     this.title,
     this.author,
     this.videoFile,
@@ -35,6 +37,7 @@ class CinemaConfig {
 
   factory CinemaConfig.fromMap(Map<String, dynamic> data) => CinemaConfig(
         videoId: data['videoID'] as String?,
+        videoUrl: data['videoUrl'] as String?,
         title: data['title'] as String?,
         author: data['author'] as String?,
         videoFile: data['videoFile'] as String?,
@@ -58,6 +61,7 @@ class CinemaConfig {
 
   Map<String, dynamic> toMap() => {
         'videoID': videoId,
+        'videoUrl': videoUrl,
         'title': title,
         'author': author,
         'videoFile': videoFile,

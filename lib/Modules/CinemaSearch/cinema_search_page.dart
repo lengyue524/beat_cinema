@@ -1,13 +1,25 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/level_info.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:beat_cinema/Modules/Manager/cinema_download_manager.dart';
 
 class CinemaSearchPage extends StatelessWidget {
-  const CinemaSearchPage({super.key, required this.levelInfo});
+  CinemaSearchPage({
+    Key? key,
+    required this.levelInfo,
+  }) : super(key: key) {
+    searchTextController =
+        TextEditingController(text: levelInfo.customLevel.songName ?? "");
+  }
   final LevelInfo levelInfo;
+  late final TextEditingController searchTextController;
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -25,31 +37,19 @@ class CinemaSearchPage extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.search),
+                  const SizedBox(
+                      width: 48, height: 48, child: Icon(Icons.search)),
                   Expanded(
                       child: TextField(
-                    decoration:
-                        const InputDecoration.collapsed(hintText: "Search..."),
+                    controller: searchTextController,
+                    decoration: InputDecoration.collapsed(
+                        hintText: AppLocalizations.of(context)!.search_tips),
                     onSubmitted: (value) {
                       context.read<CinemaSearchBloc>().add(
                           CinameSearchTextEvent(
                               value, 20, context.read<AppBloc>()));
                     },
                   )),
-                  DropdownButton(
-                      value: context.read<AppBloc>().cinemaSearchPlatform,
-                      items: CinemaSearchPlatform.values
-                          .map<DropdownMenuItem<CinemaSearchPlatform>>((e) {
-                        return DropdownMenuItem<CinemaSearchPlatform>(
-                          value: e,
-                          child: Text(e.name),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        context
-                            .read<AppBloc>()
-                            .add(AppCinemaSearchPlatformUpdateEvent(value!));
-                      }),
                 ],
               ),
               Expanded(child: getContent(state)),
@@ -129,34 +129,53 @@ class CinemaSearchPage extends StatelessWidget {
       return ListView.builder(
           itemCount: state.videoInfos.length,
           itemBuilder: (context, index) {
-            final thumb = state.videoInfos[index].thumbnail;
-            final title = state.videoInfos[index].title;
-            final url = state.videoInfos[index].originalUrl;
-            return Row(
-              children: [
-                Container(
-                  width: 96,
-                  height: 54,
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: thumb == null
-                      ? Container(
-                          color: const Color.fromARGB(255, 248, 248, 248),
-                        )
-                      : Image.network(thumb),
-                ),
-                Expanded(
+            final videoInfo = state.videoInfos[index];
+            final thumb = videoInfo.thumbnail;
+            final title = videoInfo.title;
+            final url = videoInfo.originalUrl;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 96,
+                    height: 54,
+                    child: thumb == null
+                        ? Container(
+                            color: const Color.fromARGB(255, 248, 248, 248),
+                          )
+                        : Image.network(thumb, fit: BoxFit.fill),
+                  ),
+                  Expanded(
+                      child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                     child: Text(
-                  title ?? "",
-                  style: Theme.of(context).textTheme.labelMedium,
-                )),
-                IconButton(
-                    onPressed: () {
-                      if (url != null) {
-                        launchUrlString(url);
-                      }
-                    },
-                    icon: const Icon(Icons.public))
-              ],
+                      title ?? "",
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  )),
+                  IconButton(
+                      onPressed: () {
+                        AppBloc appBloc = context.read<AppBloc>();
+                        if (appBloc.beatSaberPath != null) {
+                          CinemaDownloadManager().startCinimaDownload(
+                              context,
+                              appBloc.beatSaberPath!,
+                              videoInfo,
+                              levelInfo,
+                              appBloc.cinemaVideoQuality);
+                        }
+                      },
+                      icon: const Icon(Icons.download)),
+                  IconButton(
+                      onPressed: () {
+                        if (url != null) {
+                          launchUrlString(url);
+                        }
+                      },
+                      icon: const Icon(Icons.public))
+                ],
+              ),
             );
           });
     } else {

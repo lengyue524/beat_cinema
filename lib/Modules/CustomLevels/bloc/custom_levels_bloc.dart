@@ -12,9 +12,33 @@ part 'custom_levels_event.dart';
 part 'custom_levels_state.dart';
 
 class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
+  final List<LevelInfo> allLevels = [];
+
   CustomLevelsBloc() : super(CustomLevelsInitial()) {
     on<ReloadCustomLevelsEvent>((event, emit) async {
-      emit(CustomLevelsLoaded(await loadCustomLevels(event.beatSaberPath)));
+      allLevels.clear();
+      allLevels.addAll(await loadCustomLevels(event.beatSaberPath));
+      emit(CustomLevelsLoaded(allLevels));
+    });
+    on<FilterCustomLevelsEvent>((event, emit) {
+      if (event.seatchText != null && event.seatchText!.isNotEmpty) {
+        var filtedLevels = allLevels.where((level) {
+          var songNameLowcase = level.customLevel.songName?.toLowerCase();
+          var songSubNameLowCase = level.customLevel.songSubName?.toLowerCase();
+          var songAuthorNameLowCase =
+              level.customLevel.songAuthorName?.toLowerCase();
+          var searchTextLowCase = event.seatchText?.toLowerCase();
+          return songNameLowcase != null &&
+                  songNameLowcase.contains(searchTextLowCase!) ||
+              songSubNameLowCase != null &&
+                  songSubNameLowCase.contains(searchTextLowCase!) ||
+              songAuthorNameLowCase != null &&
+                  songAuthorNameLowCase.contains(searchTextLowCase!);
+        }).toList();
+        emit(CustomLevelsLoaded(filtedLevels));
+      } else {
+        emit(CustomLevelsLoaded(allLevels));
+      }
     });
   }
 
@@ -47,7 +71,7 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
           }
           customLevels.add(levelInfo);
         } catch (e) {
-          log.shout(e);
+          log.e(e);
         }
       }
     }

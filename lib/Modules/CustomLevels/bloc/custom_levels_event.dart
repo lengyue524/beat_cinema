@@ -12,5 +12,5 @@ class LoadCachedCustomLevelsEvent extends CustomLevelsEvent {}
 
 class FilterCustomLevelsEvent extends CustomLevelsEvent {
   FilterCustomLevelsEvent(this.seatchText);
-  final String seatchText;
+  final String? seatchText;
 }

@@ -11,28 +11,39 @@ class AppBloc extends Bloc<AppEvent, AppState> {
   AppLocal appLocal = AppLocal.en;
   String? beatSaberPath;
   CinemaSearchPlatform cinemaSearchPlatform = CinemaSearchPlatform.youtube;
+  CinemaVideoQuality cinemaVideoQuality = CinemaVideoQuality.q720p;
 
   AppBloc() : super(AppInitial()) {
     on<AppLoadComplatedEvent>((event, emit) {
       appLocal = event.local;
       beatSaberPath = event.beatSaberPath;
       cinemaSearchPlatform = event.cinemaSearchPlatform;
-      emit(AppLaunchComplated(appLocal, beatSaberPath, cinemaSearchPlatform));
+      emit(AppLaunchComplated(
+          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
     });
     on<AppLocalUpdateEvent>((event, emit) {
       appLocal = event.local;
       saveAppLocal(appLocal);
-      emit(AppLaunchComplated(appLocal, beatSaberPath, cinemaSearchPlatform));
+      emit(AppLaunchComplated(
+          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
     });
     on<AppBeatSaverPathUpdateEvent>((event, emit) {
       beatSaberPath = event.beatSaberPath;
       saveAppBeatSaberPath(beatSaberPath);
-      emit(AppLaunchComplated(appLocal, beatSaberPath, cinemaSearchPlatform));
+      emit(AppLaunchComplated(
+          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
     });
     on<AppCinemaSearchPlatformUpdateEvent>((event, emit) {
       cinemaSearchPlatform = event.cinemaSearchPlatform;
       saveCinemaSearchPlatform(cinemaSearchPlatform);
-      // emit(AppLaunchComplated(appLocal, beatSaberPath, cinemaSearchPlatform));
+      emit(AppLaunchComplated(
+          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
+    });
+    on<AppCinemaVideoQualityUpdateEvent>((event, emit) {
+      cinemaVideoQuality = event.cinemaVideoQuality;
+      saveCinemaVideoQuality(cinemaVideoQuality);
+      emit(AppLaunchComplated(
+          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
     });
   }
 
@@ -82,5 +93,11 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(Constants.sharedPreferencesCinemaSearchPlatform,
         cinemaSearchPlatform.name);
+  }
+
+  void saveCinemaVideoQuality(CinemaVideoQuality cinemaVideoQuality) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        Constants.sharedPreferencesCinemaVideoQuality, cinemaVideoQuality.name);
   }
 }

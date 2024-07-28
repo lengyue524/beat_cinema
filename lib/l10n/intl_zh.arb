@@ -2,5 +2,14 @@
     "beat_saber_dir": "BeatSaber目录:",
     "choose_dir": "选择目录",
     "exe_not_found": "未找到%s",
-    "languages": "语言:"
+    "languages": "语言",
+    "refresh_levels": "刷新歌单",
+    "video_res": "视频分辨率",
+    "download_complete": "《%s》下载完成。",
+    "download_start": "《%s》开始下载。",
+    "download_error": "《%s》下载出错: %s",
+    "search_tips": "搜索",
+    "filter_tips": "根据歌名、副标题和作者过滤",
+    "set_game_path_tips": "请先设置BeatSaver目录",
+    "search_engine": "搜索引擎"
 }

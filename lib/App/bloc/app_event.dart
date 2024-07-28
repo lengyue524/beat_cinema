@@ -27,3 +27,8 @@ final class AppCinemaSearchPlatformUpdateEvent extends AppEvent {
   AppCinemaSearchPlatformUpdateEvent(this.cinemaSearchPlatform);
   final CinemaSearchPlatform cinemaSearchPlatform;
 }
+
+final class AppCinemaVideoQualityUpdateEvent extends AppEvent {
+  final CinemaVideoQuality cinemaVideoQuality;
+  AppCinemaVideoQualityUpdateEvent(this.cinemaVideoQuality);
+}

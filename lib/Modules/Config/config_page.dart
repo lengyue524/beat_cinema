@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/Common/constants.dart';
+import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -58,7 +59,7 @@ class ConfigPage extends StatelessWidget {
           height: 48,
           child: Row(
             children: [
-              const Expanded(child: Text("data")),
+              const Expanded(child: SizedBox.shrink()),
               BlocBuilder<AppBloc, AppState>(
                 builder: (context, state) {
                   return ElevatedButton(
@@ -72,7 +73,7 @@ class ConfigPage extends StatelessWidget {
                                           state.beatSaberPath!));
                                 },
                       child: Text(
-                        "刷新歌单",
+                        "${AppLocalizations.of(context)?.refresh_levels}",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ));
                 },
@@ -101,6 +102,63 @@ class ConfigPage extends StatelessWidget {
                         if (e != null) {
                           context.read<AppBloc>().add(AppLocalUpdateEvent(e));
                         }
+                      });
+                },
+              )
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              Expanded(
+                  child: Text("${AppLocalizations.of(context)?.video_res}")),
+              BlocBuilder<AppBloc, AppState>(
+                builder: (context, state) {
+                  return DropdownButton(
+                      value:
+                          (context.read<AppBloc>().state as AppLaunchComplated)
+                              .cinemaVideoQuality,
+                      items: CinemaVideoQuality.values
+                          .map<DropdownMenuItem<CinemaVideoQuality>>((e) {
+                        return DropdownMenuItem<CinemaVideoQuality>(
+                            value: e, child: Text(e.toName()));
+                      }).toList(),
+                      onChanged: (e) {
+                        if (e != null) {
+                          context
+                              .read<AppBloc>()
+                              .add(AppCinemaVideoQualityUpdateEvent(e));
+                        }
+                      });
+                },
+              )
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              Expanded(
+                  child:
+                      Text("${AppLocalizations.of(context)?.search_engine}")),
+              BlocBuilder<AppBloc, AppState>(
+                builder: (context, state) {
+                  return DropdownButton(
+                      value: context.read<AppBloc>().cinemaSearchPlatform,
+                      items: CinemaSearchPlatform.values
+                          .map<DropdownMenuItem<CinemaSearchPlatform>>((e) {
+                        return DropdownMenuItem<CinemaSearchPlatform>(
+                          value: e,
+                          child: Text(e.name),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        context
+                            .read<AppBloc>()
+                            .add(AppCinemaSearchPlatformUpdateEvent(value!));
                       });
                 },
               )

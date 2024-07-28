@@ -3,7 +3,6 @@ import 'package:beat_cinema/Modules/CinemaSearch/cinema_search_page.dart';
 import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/level_info.dart';
 import 'package:beat_cinema/Modules/Menu/cubit/menu_cubit.dart';
-import 'package:beat_cinema/models/custom_level/custom_level.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';

@@ -1,16 +1,29 @@
-# beat_cinema
+# BeatCinema
 
-A new Flutter project.
+BeatCinema is a video resource management tool for the `BeatSaberCinema` plugin, supporting video downloads from YouTube and Bilibili, and automatically generating configuration files.
 
-## Getting Started
+Supported platform: Windows only.
 
-This project is a starting point for a Flutter application.
+# Usage Instructions
 
-A few resources to get you started if this is your first Flutter project:
+- Set the BeatSaber installation directory
+- Select a song
+- Download video
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+**⚠️ Due to Bilibili platform restrictions, only downloads up to 480p are supported without logging in.**
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+I have tried to set up login status, but it was unsuccessful. If you succeed, please let me know.
+
+[how-do-i-pass-cookies-to-yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp)
+
+**⚠️ yt-dlp version requirements**
+
+The version downloaded by ModAssistant is relatively low. Please update yt-dlp to the latest version.
+
+The version I have tested: 2024.04.09
+
+# yt-dlp Configuration
+
+If you need to customize yt-dlp configuration, please add the configuration to the `UserData\yt-dlp.conf` file in the BeatSaber game directory.
+
+For specific configuration details, please refer to the yt-dlp configuration guide [yt-dlp](https://github.com/yt-dlp/yt-dlp)
