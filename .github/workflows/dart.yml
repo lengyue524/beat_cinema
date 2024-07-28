@@ -21,10 +21,15 @@ jobs:
         with:
           channel: stable
       - run: flutter build windows
-      - name: Zip Release
-        uses: montudor/action-zip@v1
-        with:
-          args: zip -qq -r BeatCinema.zip build\windows\x64\runner\Release
+      - name: Zip files
+        shell: pwsh
+        run: |
+          if ($env:RUNNER_OS -eq "Windows") {
+            7z a test.zip my_folder 
+          }
+          else {
+            zip -r test.zip my_folder
+          }
       # - name: Artifact
       #   uses: actions/upload-artifact@v4
       #   with:
