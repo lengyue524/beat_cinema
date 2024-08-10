@@ -6,7 +6,6 @@ import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class CustomLevelsPage extends StatelessWidget {
@@ -65,6 +64,7 @@ class CustomLevelsPage extends StatelessWidget {
                   .read<CustomLevelsBloc>()
                   .add(FilterCustomLevelsEvent(value));
             },
+            style: Theme.of(context).textTheme.bodyLarge,
           )),
         ],
       ),
@@ -111,9 +111,10 @@ class CustomLevelsPage extends StatelessWidget {
                                         : Icons.movie)),
                             IconButton(
                                 onPressed: () {
-                                  launchUrl(Uri(
-                                      scheme: "file",
-                                      path: state.levels[index].levelPath));
+                                  // launchUrl(Uri(
+                                  //     scheme: "file",
+                                  //     path: state.levels[index].levelPath));
+                                  Process.run("explorer", [state.levels[index].levelPath]);
                                 },
                                 icon: const Icon(Icons.folder))
                           ],

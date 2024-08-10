@@ -1,5 +1,4 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -133,6 +132,8 @@ class CinemaSearchPage extends StatelessWidget {
             final thumb = videoInfo.thumbnail;
             final title = videoInfo.title;
             final url = videoInfo.originalUrl;
+            final duration = videoInfo.durationString ?? "00:00";
+            final resolution = videoInfo.resolution ?? "unknow";
             return Padding(
               padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
               child: Row(
@@ -149,9 +150,33 @@ class CinemaSearchPage extends StatelessWidget {
                   Expanded(
                       child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                    child: Text(
-                      title ?? "",
-                      style: Theme.of(context).textTheme.labelMedium,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title ?? "",
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Row(children: [
+                              const Icon(Icons.timer, size: 12),
+                              const SizedBox(width: 2),
+                              Text(
+                                duration,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              )
+                            ]),
+                            const SizedBox(width: 8,),
+                            Text(
+                              resolution,
+                              style: Theme.of(context).textTheme.bodySmall,
+                              
+                            ),
+                          ],
+                        )
+                      ],
                     ),
                   )),
                   IconButton(
