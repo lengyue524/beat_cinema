@@ -7,7 +7,7 @@ import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:beat_cinema/l10n/app_localizations.dart';
 import 'package:sprintf/sprintf.dart';
 
 class ConfigPage extends StatelessWidget {

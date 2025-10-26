@@ -1,7 +1,7 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:beat_cinema/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
@@ -168,11 +168,12 @@ class CinemaSearchPage extends StatelessWidget {
                                 style: Theme.of(context).textTheme.bodySmall,
                               )
                             ]),
-                            const SizedBox(width: 8,),
+                            const SizedBox(
+                              width: 8,
+                            ),
                             Text(
                               resolution,
                               style: Theme.of(context).textTheme.bodySmall,
-                              
                             ),
                           ],
                         )

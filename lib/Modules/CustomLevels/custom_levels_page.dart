@@ -6,7 +6,7 @@ import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:beat_cinema/l10n/app_localizations.dart';
 
 class CustomLevelsPage extends StatelessWidget {
   const CustomLevelsPage({super.key});
@@ -114,7 +114,8 @@ class CustomLevelsPage extends StatelessWidget {
                                   // launchUrl(Uri(
                                   //     scheme: "file",
                                   //     path: state.levels[index].levelPath));
-                                  Process.run("explorer", [state.levels[index].levelPath]);
+                                  Process.run("explorer",
+                                      [state.levels[index].levelPath]);
                                 },
                                 icon: const Icon(Icons.folder))
                           ],

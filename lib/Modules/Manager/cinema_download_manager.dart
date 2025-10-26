@@ -10,7 +10,7 @@ import 'package:beat_cinema/models/dlp_video_info/dlp_video_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:beat_cinema/Common/log.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:beat_cinema/l10n/app_localizations.dart';
 import 'package:sprintf/sprintf.dart';
 
 class CinemaDownloadManager {
