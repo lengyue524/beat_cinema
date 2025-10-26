@@ -25,14 +25,20 @@ class CinemaDownloadManager {
       DlpVideoInfo videoInfo,
       LevelInfo levelInfo,
       CinemaVideoQuality quality) async {
+    // 在异步操作开始前保存 ScaffoldMessenger 和本地化字符串的引用
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final localizations = AppLocalizations.of(context)!;
+    final downloadCompleteMsg =
+        sprintf(localizations.download_complete, [videoInfo.title]);
+    final downloadStartMsg =
+        sprintf(localizations.download_start, [videoInfo.title]);
+
     ReceivePort receivePort = ReceivePort();
     receivePort.listen((value) {
       String msg = String.fromCharCodes(value);
       if (msg == Constants.sendPortDoneString) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(sprintf(
-                AppLocalizations.of(context)!.download_complete,
-                [videoInfo.title]))));
+        scaffoldMessenger
+            .showSnackBar(SnackBar(content: Text(downloadCompleteMsg)));
       } else {
         log.d("downloadMSG:$msg");
       }
@@ -40,13 +46,11 @@ class CinemaDownloadManager {
       receivePort.close();
     }, onError: (e) {
       receivePort.close();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(sprintf(AppLocalizations.of(context)!.download_error,
-              [videoInfo.title, e.toString()]))));
+      final downloadErrorMsg = sprintf(
+          localizations.download_error, [videoInfo.title, e.toString()]);
+      scaffoldMessenger.showSnackBar(SnackBar(content: Text(downloadErrorMsg)));
     });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(sprintf(
-            AppLocalizations.of(context)!.download_start, [videoInfo.title]))));
+    scaffoldMessenger.showSnackBar(SnackBar(content: Text(downloadStartMsg)));
     await compute(
         _downloadCinemaWithYTDlp,
         CinemaDownloadParams(receivePort.sendPort, videoInfo, levelInfo,
@@ -54,6 +58,10 @@ class CinemaDownloadManager {
   }
 
   static void _downloadCinemaWithYTDlp(CinemaDownloadParams params) async {
+    // 清理文件名，移除非法字符
+    String sanitizedTitle =
+        _sanitizeFileName(params.videoInfo.title ?? "video");
+
     // 下载视频
     String dlpPath =
         "${params.beatSaberPath}${Platform.pathSeparator}${Constants.libsDir}${Platform.pathSeparator}${Constants.ytDlpName}";
@@ -62,7 +70,7 @@ class CinemaDownloadManager {
     dlpParams.add(_qualityParams(params.videoInfo, params.quality));
     dlpParams.add("-o");
     dlpParams.add(
-        "${params.levelInfo.levelPath}${Platform.pathSeparator}${params.videoInfo.title}");
+        "${params.levelInfo.levelPath}${Platform.pathSeparator}$sanitizedTitle");
     dlpParams.add("--no-cache-dir");
     dlpParams.add("--no-playlist");
     dlpParams.add("--no-part");
@@ -89,11 +97,33 @@ class CinemaDownloadManager {
     CinemaConfig cinemaConfig = CinemaConfig();
     cinemaConfig.videoUrl = params.videoInfo.originalUrl;
     cinemaConfig.title = params.videoInfo.title;
-    cinemaConfig.videoFile =
-        "${params.videoInfo.title}.${params.videoInfo.ext}";
+    cinemaConfig.videoFile = "$sanitizedTitle.${params.videoInfo.ext}";
     File cinemaConfigFile = File(
         "${params.levelInfo.levelPath}${Platform.pathSeparator}${Constants.cinemaConfigFileName}");
     await cinemaConfigFile.writeAsString(cinemaConfig.toJson());
+  }
+
+  /// 清理文件名，移除或替换文件系统中的非法字符
+  static String _sanitizeFileName(String fileName) {
+    // 移除或替换 Windows 和 Unix 系统中的非法字符
+    // Windows: < > : " / \ | ? *
+    // Unix/Linux/macOS: / 和 null 字符
+    String sanitized = fileName
+        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_') // 替换非法字符为下划线
+        .replaceAll(RegExp(r'\x00'), '') // 移除 null 字符
+        .trim(); // 移除首尾空格
+
+    // 确保文件名不为空
+    if (sanitized.isEmpty) {
+      sanitized = 'video';
+    }
+
+    // 限制文件名长度（可选，防止路径过长）
+    if (sanitized.length > 200) {
+      sanitized = sanitized.substring(0, 200);
+    }
+
+    return sanitized;
   }
 
   static String _qualityParams(

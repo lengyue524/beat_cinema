@@ -23,13 +23,7 @@ jobs:
       - run: flutter build windows
       - name: Zip files
         shell: pwsh
-        run: |
-          if ($env:RUNNER_OS -eq "Windows") {
-            7z a BeatCinema.zip build\windows\x64\runner\Release\* -r
-          }
-          else {
-            zip -r BeatCinema.zip build\windows\x64\runner\Release\*
-          }
+        run: 7z a BeatCinema.zip .\build\windows\x64\runner\Release\* -r
       # - name: Artifact
       #   uses: actions/upload-artifact@v4
       #   with:

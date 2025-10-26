@@ -11,9 +11,9 @@ import 'package:beat_cinema/Modules/Manager/cinema_download_manager.dart';
 
 class CinemaSearchPage extends StatelessWidget {
   CinemaSearchPage({
-    Key? key,
+    super.key,
     required this.levelInfo,
-  }) : super(key: key) {
+  }) {
     searchTextController =
         TextEditingController(text: levelInfo.customLevel.songName ?? "");
   }
