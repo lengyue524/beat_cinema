@@ -1,0 +1,143 @@
+# generated: 2026-03-21
+# project: beat_cinema
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+#
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - All 6 sprints completed. Full code review performed and issues fixed.
+# - Baseline 59 stories implemented across 9 epics; E8 增量 Story 已回填待开发项。
+# - E4/E7/E8 completion: panels wired, playlist page+bloc+routing added.
+
+generated: 2026-03-21
+project: beat_cinema
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # === E1: 项目基础架构 (Foundation & Architecture) — Sprint 1 ===
+  epic-1: done
+  1-1-stateful-shell-route-navigation-rail: done
+  1-2-row-main-layout-skeleton: done
+  1-3-dark-theme-system: done
+  1-4-window-manager-integration: done
+  1-5-services-layer-infrastructure: done
+  1-6-settings-beat-saber-path: done
+  1-7-app-close-graceful-shutdown: done
+  epic-1-retrospective: optional
+
+  # === E2: 关卡列表引擎 (Level List Engine) — Sprint 2 ===
+  epic-2: done
+  2-1-info-dat-parse-service: done
+  2-2-cache-service: done
+  2-3-custom-levels-bloc-refactor: done
+  2-4-level-list-tile: done
+  2-5-difficulty-badge: done
+  2-6-status-indicator: done
+  2-7-list-search: done
+  2-8-list-filter: done
+  2-9-list-sort: done
+  2-10-summary-bar: done
+  2-11-skeleton-loading: done
+  epic-2-retrospective: optional
+
+  # === E3: 视频搜索与下载 (Video Search & Download) — Sprint 3 ===
+  epic-3: done
+  3-1-video-repository-interface: done
+  3-2-ytdlp-service: done
+  3-3-download-manager: done
+  3-4-search-panel-ui: done
+  3-5-url-paste-download: done
+  3-6-download-progress-ui: done
+  3-7-download-error-retry: done
+  3-8-ytdlp-error-mapper: done
+  3-9-legacy-code-migration: done
+  epic-3-retrospective: optional
+
+  # === E4: 视频配置管理 (Video Configuration) — Sprint 3 ===
+  epic-4: done
+  4-1-cinema-video-json-model: done
+  4-2-config-create-flow: done
+  4-3-config-edit-ui: done                   # ConfigEditPanel with form fields + atomic save
+  4-4-atomic-file-write-service: done
+  4-5-level-dir-video-info: done             # FileInfoPanel listing video files with size/ref
+  4-6-file-lock-detect-retry: done
+  epic-4-retrospective: optional
+
+  # === E5: 面板与上下文菜单 (Panel & Context Menu) — Sprint 4 ===
+  epic-5: done
+  5-1-panel-host: done
+  5-2-panel-cubit: done
+  5-3-context-menu-region: done
+  5-4-level-context-menu-items: done
+  5-5-neon-visual-effects: done
+  5-6-filter-list-delayed-fadeout: done
+  epic-5-retrospective: optional
+
+  # === E6: 用户体验与反馈 (UX & Feedback) — Sprint 4 ===
+  epic-6: done
+  6-1-error-presenter-framework: done
+  6-2-empty-state-widget: done
+  6-3-micro-interaction-system: done
+  6-4-offline-mode-guard: done
+  6-5-keyboard-navigation: done
+  6-6-accessibility-labels: done
+  epic-6-retrospective: optional
+
+  # === E7: 媒体播放与同步校准 (Media Playback & Sync) — Sprint 5 (Growth) ===
+  epic-7: done
+  7-1-media-kit-integration: done
+  7-2-audio-preview: done                    # Wired into PanelContentType.audioPreview + context menu
+  7-3-video-preview: done                    # Wired into PanelContentType.videoPreview + context menu
+  7-4-sync-calibration-ui: done              # Wired into PanelContentType.syncCalibration + context menu
+  7-5-offset-save-to-config: done            # AtomicFileService save in SyncCalibrationPanel
+  7-6-player-resource-lifecycle: done        # dispose in panel + disposeAll on shutdown
+  epic-7-retrospective: optional
+
+  # === E8: 播放列表管理 (Playlist Management) — Sprint 6 (Growth) ===
+  epic-8: done
+  8-1-bplist-parse-service: done             # PlaylistParseService wired into PlaylistBloc
+  8-2-playlist-browse-page: done             # PlaylistPage + PlaylistBloc + NavigationRail tab + route
+  8-3-playlist-video-status: done            # StatusIndicator in song list + stats + filter
+  8-4-batch-export: done                     # FilePicker + directory copy with progress
+  8-5-playlist-single-missing-download: done
+  8-6-playlist-batch-missing-download: done
+  8-7-playlist-enhanced-export-retry: done
+  epic-8-retrospective: optional
+
+  # === E9: 系统增强与引导 (System Enhancements) — Sprint 6 (Growth) ===
+  epic-9: done
+  9-1-beat-saber-path-auto-detect: done
+  9-2-update-service: done
+  9-3-update-notification-ui: done
+  9-4-first-use-onboarding: done
+  epic-9-retrospective: optional
+
+  # === E10: 实施质量与可维护性强化 (Post-MVP Hardening) ===
+  epic-10: in-progress
+  10-1-bdd-acceptance-criteria-hardening: done
+  10-2-large-story-splitting-governance: done
+  10-3-cross-epic-dependency-governance: done
+  10-4-core-flow-regression-guardrails: backlog
+  10-5-large-scale-list-performance-guardrails: backlog
+  epic-10-retrospective: optional

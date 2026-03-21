@@ -1,7 +1,9 @@
 import 'package:beat_cinema/Common/constants.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
-import 'package:flutter/material.dart';
+import 'package:beat_cinema/Services/managers/download_manager.dart';
+import 'package:beat_cinema/Services/services/ytdlp_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 part 'app_event.dart';
@@ -12,12 +14,15 @@ class AppBloc extends Bloc<AppEvent, AppState> {
   String? beatSaberPath;
   CinemaSearchPlatform cinemaSearchPlatform = CinemaSearchPlatform.youtube;
   CinemaVideoQuality cinemaVideoQuality = CinemaVideoQuality.q720p;
+  DownloadManager? downloadManager;
 
   AppBloc() : super(AppInitial()) {
     on<AppLoadComplatedEvent>((event, emit) {
       appLocal = event.local;
       beatSaberPath = event.beatSaberPath;
       cinemaSearchPlatform = event.cinemaSearchPlatform;
+      cinemaVideoQuality = event.cinemaVideoQuality;
+      _rebuildDownloadManager();
       emit(AppLaunchComplated(
           appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
     });
@@ -30,6 +35,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     on<AppBeatSaverPathUpdateEvent>((event, emit) {
       beatSaberPath = event.beatSaberPath;
       saveAppBeatSaberPath(beatSaberPath);
+      _rebuildDownloadManager();
       emit(AppLaunchComplated(
           appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
     });
@@ -47,30 +53,44 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     });
   }
 
-  static void loadAppConfig(BuildContext context) async {
+  static Future<void> loadAppConfig(AppBloc bloc) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? local = prefs.getString(Constants.sharedPreferencesAppLocal);
     final String? beatSaberPath =
         prefs.getString(Constants.sharedPreferencesBeatSaberPath);
     final String? cinemaSearchPlatformStr =
         prefs.getString(Constants.sharedPreferencesCinemaSearchPlatform);
+    final String? cinemaVideoQualityStr =
+        prefs.getString(Constants.sharedPreferencesCinemaVideoQuality);
+
     AppLocal appLocal;
     CinemaSearchPlatform cinemaSearchPlatform;
-    if (local != null) {
-      appLocal = AppLocal.values.byName(local);
-    } else {
+    CinemaVideoQuality cinemaVideoQuality;
+
+    try {
+      appLocal = local != null ? AppLocal.values.byName(local) : AppLocal.en;
+    } catch (_) {
       appLocal = AppLocal.en;
     }
-    if (cinemaSearchPlatformStr == null) {
+
+    try {
+      cinemaSearchPlatform = cinemaSearchPlatformStr != null
+          ? CinemaSearchPlatform.values.byName(cinemaSearchPlatformStr)
+          : CinemaSearchPlatform.youtube;
+    } catch (_) {
       cinemaSearchPlatform = CinemaSearchPlatform.youtube;
-    } else {
-      cinemaSearchPlatform =
-          CinemaSearchPlatform.values.byName(cinemaSearchPlatformStr);
     }
-    if (context.mounted) {
-      context.read<AppBloc>().add(
-          AppLoadComplatedEvent(appLocal, beatSaberPath, cinemaSearchPlatform));
+
+    try {
+      cinemaVideoQuality = cinemaVideoQualityStr != null
+          ? CinemaVideoQuality.values.byName(cinemaVideoQualityStr)
+          : CinemaVideoQuality.q720p;
+    } catch (_) {
+      cinemaVideoQuality = CinemaVideoQuality.q720p;
     }
+
+    bloc.add(AppLoadComplatedEvent(
+        appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
   }
 
   void saveAppLocal(AppLocal local) async {
@@ -99,5 +119,16 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(
         Constants.sharedPreferencesCinemaVideoQuality, cinemaVideoQuality.name);
+  }
+
+  void _rebuildDownloadManager() {
+    downloadManager?.dispose();
+    if (beatSaberPath == null || beatSaberPath!.trim().isEmpty) {
+      downloadManager = null;
+      return;
+    }
+    downloadManager = DownloadManager(
+      YtDlpService(beatSaberPath: beatSaberPath!),
+    );
   }
 }
