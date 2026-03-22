@@ -106,6 +106,10 @@ class LevelListTile extends StatelessWidget {
                                   difficulties: metadata.difficulties),
                               const SizedBox(width: AppSpacing.xs),
                               _BpmWithIcon(bpm: metadata.bpm),
+                              const SizedBox(width: AppSpacing.xs),
+                              _SongDurationWithIcon(
+                                seconds: metadata.rawLevel?.previewDuration,
+                              ),
                             ],
                           ),
                         ],
@@ -254,6 +258,45 @@ class _BpmWithIcon extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _SongDurationWithIcon extends StatelessWidget {
+  const _SongDurationWithIcon({required this.seconds});
+
+  final double? seconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawSeconds = seconds;
+    if (rawSeconds == null || rawSeconds <= 0) {
+      return const SizedBox.shrink();
+    }
+    final formatted = _formatToMmSs(rawSeconds.floor());
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.schedule,
+          size: 14,
+          color: AppColors.textSecondary,
+        ),
+        const SizedBox(width: 2),
+        Text(
+          formatted,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatToMmSs(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }
 

@@ -10,6 +10,9 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: write
+
 jobs:
   main:
     runs-on: windows-latest
@@ -36,4 +39,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: BeatCinema.zip
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+          token: ${{ github.token }}
