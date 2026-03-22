@@ -326,6 +326,30 @@ abstract class AppLocalizations {
   /// **'yt-dlp not found, please install it first'**
   String get error_ytdlp_not_found;
 
+  /// No description provided for @error_bbdown_not_found.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown not found, please place BBDown.exe in Libs directory'**
+  String get error_bbdown_not_found;
+
+  /// No description provided for @error_bbdown_login_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Bilibili resource requires login, please run BBDown login in settings'**
+  String get error_bbdown_login_required;
+
+  /// No description provided for @error_bbdown_network.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown failed to process this video, please retry'**
+  String get error_bbdown_network;
+
+  /// No description provided for @error_bbdown_unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown processing failed'**
+  String get error_bbdown_unknown;
+
   /// No description provided for @error_ytdlp_search_timeout.
   ///
   /// In en, this message translates to:
@@ -632,6 +656,108 @@ abstract class AppLocalizations {
   /// **'Proxy address saved'**
   String get config_proxy_saved_address;
 
+  /// No description provided for @config_section_bbdown_title.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown'**
+  String get config_section_bbdown_title;
+
+  /// No description provided for @config_section_bbdown_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bilibili engine login and session management'**
+  String get config_section_bbdown_subtitle;
+
+  /// No description provided for @config_label_bbdown_login.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown Login'**
+  String get config_label_bbdown_login;
+
+  /// No description provided for @config_bbdown_login_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Login'**
+  String get config_bbdown_login_action;
+
+  /// No description provided for @config_bbdown_missing_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown.exe not detected. Place it in the Libs directory before login.'**
+  String get config_bbdown_missing_hint;
+
+  /// No description provided for @config_bbdown_download_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Download Latest'**
+  String get config_bbdown_download_action;
+
+  /// No description provided for @config_bbdown_download_started.
+  ///
+  /// In en, this message translates to:
+  /// **'Start downloading latest BBDown...'**
+  String get config_bbdown_download_started;
+
+  /// No description provided for @config_bbdown_download_done.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown downloaded successfully'**
+  String get config_bbdown_download_done;
+
+  /// No description provided for @config_bbdown_download_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to download latest BBDown'**
+  String get config_bbdown_download_failed;
+
+  /// No description provided for @config_bbdown_login_started.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown login window started'**
+  String get config_bbdown_login_started;
+
+  /// No description provided for @config_bbdown_login_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to start BBDown login'**
+  String get config_bbdown_login_failed;
+
+  /// No description provided for @config_bbdown_login_success.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown login detected successfully'**
+  String get config_bbdown_login_success;
+
+  /// No description provided for @config_bbdown_login_pending.
+  ///
+  /// In en, this message translates to:
+  /// **'Login not detected yet. Complete login and refresh status.'**
+  String get config_bbdown_login_pending;
+
+  /// No description provided for @config_bbdown_login_checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking...'**
+  String get config_bbdown_login_checking;
+
+  /// No description provided for @config_bbdown_status_logged_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Logged in'**
+  String get config_bbdown_status_logged_in;
+
+  /// No description provided for @config_bbdown_status_not_logged_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Not logged in'**
+  String get config_bbdown_status_not_logged_in;
+
+  /// No description provided for @config_bbdown_status_unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Login status unknown'**
+  String get config_bbdown_status_unknown;
+
   /// No description provided for @config_game_dir_saved.
   ///
   /// In en, this message translates to:
@@ -835,6 +961,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to open the webpage. Please try again.'**
   String get search_open_link_failed;
+
+  /// No description provided for @search_bbdown_missing_fallback.
+  ///
+  /// In en, this message translates to:
+  /// **'BBDown is not installed. Fallback to yt-dlp is active. Install BBDown to enable the dedicated Bilibili engine.'**
+  String get search_bbdown_missing_fallback;
 
   /// No description provided for @search_tooltip_play.
   ///

@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/l10n/app_localizations.dart';
+import 'package:path/path.dart' as p;
 import 'package:sprintf/sprintf.dart';
 
 class CinemaDownloadManager {
@@ -30,7 +31,7 @@ class CinemaDownloadManager {
     return _downloadingTaskKeys.contains(_taskKey(levelPath, videoUrl));
   }
 
-  void startCinimaDownload(
+  Future<void> startCinimaDownload(
       BuildContext context,
       String beatSaberPath,
       DlpVideoInfo videoInfo,
@@ -130,10 +131,54 @@ class CinemaDownloadManager {
     CinemaConfig cinemaConfig = CinemaConfig();
     cinemaConfig.videoUrl = params.videoInfo.originalUrl;
     cinemaConfig.title = params.videoInfo.title;
-    cinemaConfig.videoFile = "$sanitizedTitle.${params.videoInfo.ext}";
+    cinemaConfig.videoFile = _resolveDownloadedVideoFileName(
+      levelPath: params.levelInfo.levelPath,
+      sanitizedTitle: sanitizedTitle,
+      sourceExt: params.videoInfo.ext,
+    );
     File cinemaConfigFile = File(
         "${params.levelInfo.levelPath}${Platform.pathSeparator}${Constants.cinemaConfigFileName}");
     await cinemaConfigFile.writeAsString(cinemaConfig.toJson());
+  }
+
+  static String _resolveDownloadedVideoFileName({
+    required String levelPath,
+    required String sanitizedTitle,
+    String? sourceExt,
+  }) {
+    try {
+      final dir = Directory(levelPath);
+      if (dir.existsSync()) {
+        final normalizedPrefix = sanitizedTitle.toLowerCase();
+        final candidates = dir
+            .listSync()
+            .whereType<File>()
+            .where((file) {
+              final fileName = p.basename(file.path).toLowerCase();
+              if (!fileName.startsWith(normalizedPrefix)) return false;
+              final ext = p.extension(fileName).toLowerCase();
+              return ext == '.mp4' ||
+                  ext == '.mkv' ||
+                  ext == '.webm' ||
+                  ext == '.mov' ||
+                  ext == '.avi' ||
+                  ext == '.m4v';
+            })
+            .toList();
+        if (candidates.isNotEmpty) {
+          candidates.sort(
+            (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()),
+          );
+          return p.basename(candidates.first.path);
+        }
+      }
+    } catch (_) {}
+
+    final ext = (sourceExt ?? '').trim().toLowerCase();
+    if (ext.isEmpty || ext == 'null') {
+      return '$sanitizedTitle.mp4';
+    }
+    return '$sanitizedTitle.$ext';
   }
 
   /// 清理文件名，移除或替换文件系统中的非法字符

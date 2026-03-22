@@ -8,10 +8,13 @@ import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Common/constants.dart';
 import 'package:beat_cinema/Core/errors/app_error.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
+import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/level_info.dart';
 import 'package:beat_cinema/Modules/Manager/cinema_download_manager.dart';
+import 'package:beat_cinema/Modules/Playlists/bloc/playlist_bloc.dart';
 import 'package:beat_cinema/Modules/Panel/video_preview_dialog.dart';
 import 'package:beat_cinema/Services/repositories/video_repository.dart';
+import 'package:beat_cinema/Services/services/bbdown_service.dart';
 import 'package:beat_cinema/Services/services/ytdlp_service.dart';
 import 'package:beat_cinema/l10n/app_localizations.dart';
 import 'package:beat_cinema/models/cinema_config/cinema_config.dart';
@@ -52,7 +55,7 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
         text: widget.levelInfo.customLevel.songName ?? '');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _triggerSearch();
+      unawaited(_triggerSearch());
     });
     _downloadTaskSub = _downloadManager.downloadingTaskStream.listen((_) {
       if (mounted) setState(() {});
@@ -69,7 +72,7 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
     _searchController.text = nextSongName;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _triggerSearch();
+      unawaited(_triggerSearch());
     });
   }
 
@@ -81,18 +84,18 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
     super.dispose();
   }
 
-  void _triggerSearch() {
+  Future<void> _triggerSearch() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
-    _searchBloc.add(
-        CinameSearchTextEvent(query, _searchCount, context.read<AppBloc>()));
+    final appBloc = context.read<AppBloc>();
+    _searchBloc.add(CinameSearchTextEvent(query, _searchCount, appBloc));
   }
 
   void _switchPlatform(CinemaSearchPlatform platform) {
     final appBloc = context.read<AppBloc>();
     if (appBloc.cinemaSearchPlatform == platform) return;
     appBloc.add(AppCinemaSearchPlatformUpdateEvent(platform));
-    _triggerSearch();
+    unawaited(_triggerSearch());
   }
 
   Future<void> _playInApp(DlpVideoInfo videoInfo) async {
@@ -101,8 +104,28 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
     final playTitle = (videoInfo.title ?? '').trim();
     final resolvedTitle = playTitle.isNotEmpty ? playTitle : rawUrl;
     if (rawUrl.isEmpty || appBloc.beatSaberPath == null) return;
+    final prefersBbDown =
+        appBloc.cinemaSearchPlatform == CinemaSearchPlatform.bilibili;
+    if (prefersBbDown) {
+      final installed = await BbDownService.isInstalled(appBloc.beatSaberPath!);
+      if (!installed) {
+        log.w(
+          '[CinemaSearch] play engine=ytdlp platform=bilibili '
+          'reason=bbdown_not_installed',
+        );
+      } else {
+        log.i('[CinemaSearch] play engine=bbdown platform=bilibili');
+        await _playInAppByBbDown(
+          appBloc: appBloc,
+          rawUrl: rawUrl,
+          resolvedTitle: resolvedTitle,
+        );
+        return;
+      }
+    }
     if (_resolvingPlayUrls.contains(rawUrl)) return;
     setState(() => _resolvingPlayUrls.add(rawUrl));
+    log.i('[CinemaSearch] play engine=ytdlp platform=${appBloc.cinemaSearchPlatform.name}');
     final service = YtDlpService(
       beatSaberPath: appBloc.beatSaberPath!,
       proxyMode: appBloc.proxyMode,
@@ -190,6 +213,69 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
     }
   }
 
+  Future<void> _playInAppByBbDown({
+    required AppBloc appBloc,
+    required String rawUrl,
+    required String resolvedTitle,
+  }) async {
+    if (_resolvingPlayUrls.contains(rawUrl)) return;
+    setState(() => _resolvingPlayUrls.add(rawUrl));
+    final service = BbDownService(
+      beatSaberPath: appBloc.beatSaberPath!,
+      proxyMode: appBloc.proxyMode,
+      customProxy: appBloc.proxyServer,
+    );
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final cacheDir = Directory(p.join(tempDir.path, 'beat_cinema_play_cache'));
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+      final targetDir = Directory(
+        p.join(cacheDir.path, DateTime.now().millisecondsSinceEpoch.toString()),
+      );
+      await targetDir.create(recursive: true);
+      final playableFile = await service.downloadPlayableFile(
+        url: rawUrl,
+        outputDir: targetDir.path,
+      );
+      if (!mounted) return;
+      final played = await VideoPreviewDialog.show(
+        context,
+        filePath: playableFile,
+        title: resolvedTitle,
+        autoCloseOnError: true,
+      );
+      if (!played && mounted) {
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n?.search_play_failed ?? '视频播放失败，请稍后重试',
+            ),
+          ),
+        );
+      }
+    } catch (e, st) {
+      log.w('[CinemaSearch] bbdown in-app play failed url=$rawUrl', e, st);
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
+      final reason = _resolvePlayFailureReason(e, l10n) ??
+          (l10n?.error_bbdown_unknown ?? 'BBDown 处理失败');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n?.search_play_failed_with_reason(reason) ?? '视频播放失败：$reason',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _resolvingPlayUrls.remove(rawUrl));
+      }
+    }
+  }
+
   String? _resolvePlayFailureReason(Object error, AppLocalizations? l10n) {
     if (l10n == null) return null;
     if (error is AppError) {
@@ -210,6 +296,14 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
           return l10n.error_ytdlp_unknown;
         case 'snack_video_file_unresolved':
           return l10n.snack_video_file_unresolved;
+        case 'error_bbdown_not_found':
+          return l10n.error_bbdown_not_found;
+        case 'error_bbdown_login_required':
+          return l10n.error_bbdown_login_required;
+        case 'error_bbdown_network':
+          return l10n.error_bbdown_network;
+        case 'error_bbdown_unknown':
+          return l10n.error_bbdown_unknown;
       }
       return error.detail?.trim().isNotEmpty == true
           ? error.detail!.trim()
@@ -436,6 +530,7 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
                     Expanded(
                       child: TextField(
                         controller: _searchController,
+                        keyboardType: TextInputType.text,
                         style: const TextStyle(
                             color: AppColors.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
@@ -464,12 +559,12 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
                           ),
                         ),
                         textInputAction: TextInputAction.search,
-                        onSubmitted: (_) => _triggerSearch(),
+                        onSubmitted: (_) => unawaited(_triggerSearch()),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     FilledButton(
-                      onPressed: _triggerSearch,
+                      onPressed: () => unawaited(_triggerSearch()),
                       child: const Icon(Icons.search, size: 16),
                     ),
                   ],
@@ -698,15 +793,40 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
                         ),
                         onPressed: downloaded
                             ? null
-                            : () {
+                            : () async {
                                 final appBloc = context.read<AppBloc>();
-                                if (appBloc.beatSaberPath == null) return;
-                                _downloadManager.startCinimaDownload(
-                                  context,
-                                  appBloc.beatSaberPath!,
-                                  videoInfo,
-                                  widget.levelInfo,
-                                  appBloc.cinemaVideoQuality,
+                                final customLevelsBloc =
+                                    context.read<CustomLevelsBloc>();
+                                PlaylistBloc? playlistBloc;
+                                try {
+                                  playlistBloc = context.read<PlaylistBloc>();
+                                } catch (_) {
+                                  playlistBloc = null;
+                                }
+                                final beatSaberPath = appBloc.beatSaberPath;
+                                if (beatSaberPath == null) return;
+                                try {
+                                  await _downloadManager.startCinimaDownload(
+                                    context,
+                                    beatSaberPath,
+                                    videoInfo,
+                                    widget.levelInfo,
+                                    appBloc.cinemaVideoQuality,
+                                  );
+                                } catch (_) {
+                                  if (mounted) setState(() {});
+                                  return;
+                                }
+                                if (!mounted) return;
+                                customLevelsBloc.add(
+                                  RefreshSingleLevelEvent(
+                                    widget.levelInfo.levelPath,
+                                  ),
+                                );
+                                playlistBloc?.add(
+                                  RefreshMatchedLevelEvent(
+                                    widget.levelInfo.levelPath,
+                                  ),
                                 );
                                 setState(() {});
                               },
@@ -745,4 +865,5 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
       return false;
     }
   }
+
 }

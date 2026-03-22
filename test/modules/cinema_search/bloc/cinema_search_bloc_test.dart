@@ -33,4 +33,20 @@ void main() {
       expect(args, equals(['bilisearch5:abc', '-j']));
     });
   });
+
+  group('CinemaSearchBloc.buildSearchCacheKey', () {
+    test('normalizes query and proxy for stable cache key', () {
+      final key = CinemaSearchBloc.buildSearchCacheKey(
+        platform: CinemaSearchPlatform.youtube,
+        count: 20,
+        text: '  Hello World  ',
+        proxyUrl: ' HTTP://127.0.0.1:7890 ',
+      );
+
+      expect(
+        key,
+        equals('youtube|20|hello world|http://127.0.0.1:7890'),
+      );
+    });
+  });
 }

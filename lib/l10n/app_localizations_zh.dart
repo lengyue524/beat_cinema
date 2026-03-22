@@ -123,6 +123,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get error_ytdlp_not_found => '未找到 yt-dlp，请先安装';
 
   @override
+  String get error_bbdown_not_found => '未找到 BBDown，请先将 BBDown.exe 放入 Libs 目录';
+
+  @override
+  String get error_bbdown_login_required =>
+      'Bilibili 资源需要登录，请先在设置中执行 BBDown 登录';
+
+  @override
+  String get error_bbdown_network => 'BBDown 处理失败，请检查网络后重试';
+
+  @override
+  String get error_bbdown_unknown => 'BBDown 处理失败';
+
+  @override
   String get error_ytdlp_search_timeout => '搜索超时，请重试';
 
   @override
@@ -277,6 +290,57 @@ class AppLocalizationsZh extends AppLocalizations {
   String get config_proxy_saved_address => '代理地址已保存';
 
   @override
+  String get config_section_bbdown_title => 'BBDown';
+
+  @override
+  String get config_section_bbdown_subtitle => 'Bilibili 引擎登录与会话管理';
+
+  @override
+  String get config_label_bbdown_login => 'BBDown 登录';
+
+  @override
+  String get config_bbdown_login_action => '开始登录';
+
+  @override
+  String get config_bbdown_missing_hint => '未检测到 BBDown.exe，请先放入 Libs 目录后再登录。';
+
+  @override
+  String get config_bbdown_download_action => '下载最新版';
+
+  @override
+  String get config_bbdown_download_started => '开始下载最新 BBDown...';
+
+  @override
+  String get config_bbdown_download_done => 'BBDown 下载完成';
+
+  @override
+  String get config_bbdown_download_failed => 'BBDown 下载失败，请稍后重试';
+
+  @override
+  String get config_bbdown_login_started => '已启动 BBDown 登录窗口';
+
+  @override
+  String get config_bbdown_login_failed => '启动 BBDown 登录失败';
+
+  @override
+  String get config_bbdown_login_success => '检测到 BBDown 登录成功';
+
+  @override
+  String get config_bbdown_login_pending => '暂未检测到登录成功，请完成登录后刷新状态';
+
+  @override
+  String get config_bbdown_login_checking => '检测中...';
+
+  @override
+  String get config_bbdown_status_logged_in => '已登录';
+
+  @override
+  String get config_bbdown_status_not_logged_in => '未登录';
+
+  @override
+  String get config_bbdown_status_unknown => '登录状态未知';
+
+  @override
   String get config_game_dir_saved => '游戏目录已更新';
 
   @override
@@ -381,6 +445,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get search_open_link_failed => '无法打开网页链接，请稍后重试';
+
+  @override
+  String get search_bbdown_missing_fallback =>
+      '未检测到 BBDown，当前已回退使用 yt-dlp。请安装 BBDown 以启用 Bilibili 专用引擎。';
 
   @override
   String get search_tooltip_play => '应用内播放';

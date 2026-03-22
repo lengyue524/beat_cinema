@@ -107,9 +107,7 @@ class LevelListTile extends StatelessWidget {
                               const SizedBox(width: AppSpacing.xs),
                               _BpmWithIcon(bpm: metadata.bpm),
                               const SizedBox(width: AppSpacing.xs),
-                              _SongDurationWithIcon(
-                                seconds: metadata.rawLevel?.previewDuration,
-                              ),
+                              _SongDurationWithIcon(metadata: metadata),
                             ],
                           ),
                         ],
@@ -261,18 +259,183 @@ class _BpmWithIcon extends StatelessWidget {
   }
 }
 
-class _SongDurationWithIcon extends StatelessWidget {
-  const _SongDurationWithIcon({required this.seconds});
+class _SongDurationWithIcon extends StatefulWidget {
+  const _SongDurationWithIcon({required this.metadata});
 
-  final double? seconds;
+  final LevelMetadata metadata;
+
+  @override
+  State<_SongDurationWithIcon> createState() => _SongDurationWithIconState();
+}
+
+class _SongDurationWithIconState extends State<_SongDurationWithIcon> {
+  static final Map<String, int> _durationCache = <String, int>{};
+  static final Map<String, Future<int?>> _pending = <String, Future<int?>>{};
+  int? _seconds;
+
+  @override
+  void initState() {
+    super.initState();
+    _seconds = _fallbackPreviewSeconds(widget.metadata);
+    _resolveSongDuration();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SongDurationWithIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.metadata.levelPath == widget.metadata.levelPath &&
+        oldWidget.metadata.lastModified == widget.metadata.lastModified) {
+      return;
+    }
+    _seconds = _fallbackPreviewSeconds(widget.metadata);
+    _resolveSongDuration();
+  }
+
+  Future<void> _resolveSongDuration() async {
+    final audioPath = _resolveAudioPath(widget.metadata);
+    if (audioPath == null) return;
+    final cacheKey = audioPath.toLowerCase();
+    final cached = _durationCache[cacheKey];
+    if (cached != null && cached > 0) {
+      if (mounted) {
+        setState(() => _seconds = cached);
+      }
+      return;
+    }
+    final pending = _pending[cacheKey];
+    if (pending != null) {
+      final reused = await pending;
+      if (!mounted || reused == null || reused <= 0) return;
+      setState(() => _seconds = reused);
+      return;
+    }
+    final future = _readAudioDurationSeconds(audioPath);
+    _pending[cacheKey] = future;
+    final resolved = await future;
+    _pending.remove(cacheKey);
+    if (resolved == null || resolved <= 0) return;
+    _durationCache[cacheKey] = resolved;
+    if (!mounted) return;
+    setState(() => _seconds = resolved);
+  }
+
+  static int? _fallbackPreviewSeconds(LevelMetadata metadata) {
+    final raw = metadata.rawLevel?.previewDuration;
+    if (raw == null || raw <= 0) return null;
+    return raw.floor();
+  }
+
+  static String? _resolveAudioPath(LevelMetadata metadata) {
+    final fromInfo = (metadata.rawLevel?.songFilename ?? '').trim();
+    if (fromInfo.isNotEmpty) {
+      final byInfo = p.join(metadata.levelPath, fromInfo);
+      if (File(byInfo).existsSync()) return byInfo;
+    }
+    try {
+      final dir = Directory(metadata.levelPath);
+      if (!dir.existsSync()) return null;
+      final audio = dir.listSync().whereType<File>().firstWhere(
+            (file) {
+              final ext = p.extension(file.path).toLowerCase();
+              return ext == '.egg' ||
+                  ext == '.ogg' ||
+                  ext == '.wav' ||
+                  ext == '.mp3';
+            },
+            orElse: () => File(''),
+          );
+      return audio.path.isEmpty ? null : audio.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<int?> _readAudioDurationSeconds(String audioPath) async {
+    final ext = p.extension(audioPath).toLowerCase();
+    if (ext == '.ogg' || ext == '.egg') {
+      return _readOggDurationSeconds(audioPath);
+    }
+    return null;
+  }
+
+  static Future<int?> _readOggDurationSeconds(String audioPath) async {
+    try {
+      final bytes = await File(audioPath).readAsBytes();
+      if (bytes.length < 64) return null;
+      final sampleRate = _extractVorbisSampleRate(bytes);
+      if (sampleRate == null || sampleRate <= 0) return null;
+      final granule = _extractLastOggGranulePosition(bytes);
+      if (granule == null || granule <= 0) return null;
+      return (granule / sampleRate).round();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static int? _extractVorbisSampleRate(List<int> bytes) {
+    for (var i = 0; i + 15 < bytes.length; i++) {
+      if (bytes[i] == 0x01 &&
+          bytes[i + 1] == 0x76 &&
+          bytes[i + 2] == 0x6F &&
+          bytes[i + 3] == 0x72 &&
+          bytes[i + 4] == 0x62 &&
+          bytes[i + 5] == 0x69 &&
+          bytes[i + 6] == 0x73) {
+        final offset = i + 12;
+        if (offset + 3 >= bytes.length) return null;
+        return bytes[offset] |
+            (bytes[offset + 1] << 8) |
+            (bytes[offset + 2] << 16) |
+            (bytes[offset + 3] << 24);
+      }
+    }
+    return null;
+  }
+
+  static int? _extractLastOggGranulePosition(List<int> bytes) {
+    var i = 0;
+    int? lastGranule;
+    while (i + 27 <= bytes.length) {
+      final isOggPage = bytes[i] == 0x4F &&
+          bytes[i + 1] == 0x67 &&
+          bytes[i + 2] == 0x67 &&
+          bytes[i + 3] == 0x53;
+      if (!isOggPage) {
+        i++;
+        continue;
+      }
+      final segmentCount = bytes[i + 26];
+      if (i + 27 + segmentCount > bytes.length) break;
+      var payloadLen = 0;
+      for (var s = 0; s < segmentCount; s++) {
+        payloadLen += bytes[i + 27 + s];
+      }
+      final pageLen = 27 + segmentCount + payloadLen;
+      if (i + pageLen > bytes.length) break;
+      final granule = _readUint64LittleEndian(bytes, i + 6);
+      if (granule > 0) {
+        lastGranule = granule;
+      }
+      i += pageLen;
+    }
+    return lastGranule;
+  }
+
+  static int _readUint64LittleEndian(List<int> bytes, int offset) {
+    var value = 0;
+    for (var i = 0; i < 8; i++) {
+      value |= bytes[offset + i] << (8 * i);
+    }
+    return value;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final rawSeconds = seconds;
+    final rawSeconds = _seconds;
     if (rawSeconds == null || rawSeconds <= 0) {
       return const SizedBox.shrink();
     }
-    final formatted = _formatToMmSs(rawSeconds.floor());
+    final formatted = _formatToMmSs(rawSeconds);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

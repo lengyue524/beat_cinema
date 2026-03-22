@@ -4,6 +4,7 @@ import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/App/theme/app_colors.dart';
 import 'package:beat_cinema/Common/constants.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
+import 'package:beat_cinema/Services/services/bbdown_service.dart';
 import 'package:beat_cinema/Services/services/proxy_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,8 @@ class ConfigPage extends StatefulWidget {
 
 class _ConfigPageState extends State<ConfigPage> {
   late final TextEditingController _proxyController;
+  bool _bbdownDownloading = false;
+  bool _bbdownLoginChecking = false;
 
   @override
   void initState() {
@@ -195,6 +198,17 @@ class _ConfigPageState extends State<ConfigPage> {
                       ],
                     ),
                   ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildSectionCard(
+              context: context,
+              title: l10n?.config_section_bbdown_title ?? 'BBDown',
+              subtitle: l10n?.config_section_bbdown_subtitle ??
+                  'Bilibili engine login and session management',
+              icon: Icons.smart_display_outlined,
+              children: [
+                _buildBbDownSetting(context, state, l10n),
               ],
             ),
           ],
@@ -448,6 +462,251 @@ class _ConfigPageState extends State<ConfigPage> {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
+    );
+  }
+
+  Future<void> _startBbDownLogin(
+    BuildContext context,
+    AppLaunchComplated state,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final beatSaberPath = state.beatSaberPath;
+    if (beatSaberPath == null || beatSaberPath.trim().isEmpty) return;
+    final service = BbDownService(
+      beatSaberPath: beatSaberPath,
+      proxyMode: state.proxyMode,
+      customProxy: state.proxyServer,
+    );
+    try {
+      await service.launchInteractiveLogin();
+      if (!context.mounted) return;
+      _showSaved(
+        context,
+        l10n?.config_bbdown_login_started ?? 'BBDown login window started',
+      );
+      setState(() => _bbdownLoginChecking = true);
+      final ok = await service.waitForLoginSuccess();
+      if (!context.mounted) return;
+      if (ok) {
+        _showSaved(
+          context,
+          l10n?.config_bbdown_login_success ?? 'BBDown login successful',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n?.config_bbdown_login_pending ??
+                  'Login not detected yet. You can retry or refresh status.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n?.config_bbdown_login_failed ??
+                'Failed to start BBDown login',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _bbdownLoginChecking = false);
+      }
+    }
+  }
+
+  Future<void> _downloadLatestBbDown(
+    BuildContext context,
+    AppLaunchComplated state,
+  ) async {
+    if (_bbdownDownloading) return;
+    final l10n = AppLocalizations.of(context);
+    final beatSaberPath = state.beatSaberPath;
+    if (beatSaberPath == null || beatSaberPath.trim().isEmpty) return;
+    setState(() => _bbdownDownloading = true);
+    _showSaved(
+      context,
+      l10n?.config_bbdown_download_started ?? 'Start downloading latest BBDown',
+    );
+    final service = BbDownService(
+      beatSaberPath: beatSaberPath,
+      proxyMode: state.proxyMode,
+      customProxy: state.proxyServer,
+    );
+    try {
+      await service.downloadLatestToLibs();
+      if (!context.mounted) return;
+      _showSaved(
+        context,
+        l10n?.config_bbdown_download_done ?? 'BBDown downloaded successfully',
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n?.config_bbdown_download_failed ??
+                'Failed to download latest BBDown',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _bbdownDownloading = false);
+      }
+    }
+  }
+
+  Widget _buildBbDownSetting(
+    BuildContext context,
+    AppLaunchComplated state,
+    AppLocalizations? l10n,
+  ) {
+    final beatSaberPath = state.beatSaberPath;
+    if (beatSaberPath == null || beatSaberPath.trim().isEmpty) {
+      return _buildLabeledField(
+        context: context,
+        label: l10n?.config_label_bbdown_login ?? 'BBDown Login',
+        field: Text(
+          l10n?.set_game_path_tips ?? 'Set BeatSaver Path in settings',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+        ),
+      );
+    }
+    return FutureBuilder<bool>(
+      future: BbDownService.isInstalled(beatSaberPath),
+      builder: (context, snapshot) {
+        final installed = snapshot.data == true;
+        final checking = snapshot.connectionState == ConnectionState.waiting;
+        final service = BbDownService(
+          beatSaberPath: beatSaberPath,
+          proxyMode: state.proxyMode,
+          customProxy: state.proxyServer,
+        );
+        return Column(
+          children: [
+            _buildLabeledField(
+              context: context,
+              label: l10n?.config_label_bbdown_login ?? 'BBDown Login',
+              field: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: (!checking && installed && !_bbdownLoginChecking)
+                          ? () => _startBbDownLogin(context, state)
+                          : null,
+                      icon: _bbdownLoginChecking
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.login, size: 18),
+                      label: Text(
+                        _bbdownLoginChecking
+                            ? (l10n?.config_bbdown_login_checking ??
+                                'Checking...')
+                            : (l10n?.config_bbdown_login_action ?? 'Start Login'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    FilledButton.tonalIcon(
+                      onPressed: _bbdownDownloading
+                          ? null
+                          : () => _downloadLatestBbDown(context, state),
+                      icon: _bbdownDownloading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download, size: 18),
+                      label: Text(
+                        l10n?.config_bbdown_download_action ??
+                            'Download Latest',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (!checking && installed)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: FutureBuilder<BbDownAuthState>(
+                  future: service.getAuthState(),
+                  builder: (context, authSnapshot) {
+                    final auth = authSnapshot.data ?? BbDownAuthState.unknown;
+                    final (icon, color, text) = switch (auth) {
+                      BbDownAuthState.loggedIn => (
+                          Icons.verified_user,
+                          AppColors.success,
+                          l10n?.config_bbdown_status_logged_in ?? 'Logged in'
+                        ),
+                      BbDownAuthState.notLoggedIn => (
+                          Icons.info_outline,
+                          AppColors.textSecondary,
+                          l10n?.config_bbdown_status_not_logged_in ??
+                              'Not logged in'
+                        ),
+                      BbDownAuthState.unknown => (
+                          Icons.help_outline,
+                          AppColors.warning,
+                          l10n?.config_bbdown_status_unknown ??
+                              'Login status unknown'
+                        ),
+                    };
+                    return Row(
+                      children: [
+                        Icon(icon, size: 16, color: color),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            text,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: color),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            if (!checking && !installed)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        l10n?.config_bbdown_missing_hint ??
+                            '未检测到 BBDown.exe，请先放入 Libs 目录后再登录。',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.warning,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

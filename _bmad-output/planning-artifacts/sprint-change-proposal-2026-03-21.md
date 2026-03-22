@@ -210,4 +210,136 @@ Success Criteria:
 - Incremental Proposal 1 (新增 S10.7): Approved (`a`)
 - Incremental Proposal 2 (sprint-status 同步): Approved (`a`)
 - Incremental Proposal 3 (epics 详细落文): Approved (`a`)
-- Pending: Final proposal approval (yes/no/revise)
+- Final proposal approval: Approved (`approve all`)
+
+---
+
+## Sprint Change Proposal Addendum (Bilibili -> BBDown + Login Entry)
+
+Date: 2026-03-21  
+Mode: Incremental
+
+### 1. Issue Summary
+
+触发类型：新增需求（无既有 Story 触发）。  
+变更目标：
+- 视频搜索与播放在选择 Bilibili 引擎时，改为使用 BBDown 通道
+- 设置页新增 BBDown 登录入口，采用 A 方案（一键登录）
+
+问题陈述：
+- 当前 Bilibili 链路与 YouTube 共用 yt-dlp 方案，无法体现平台差异化策略
+- 设置页缺少 BBDown 登录入口，用户在需登录场景下缺少明确恢复路径
+
+### 2. Impact Analysis
+
+Epic Impact:
+- 不需要回滚已完成 Epic
+- 建议在 E10 增量新增 Story：`10-9-bilibili-bbdown-engine-and-login-entry`
+
+Story Impact:
+- 新增 Story 覆盖三块能力：平台路由、登录入口、错误引导
+- 对现有 YouTube 路径要求“零回归”
+
+Artifact Impact:
+- PRD：补充 Bilibili 平台策略与设置登录能力说明
+- Architecture：补充 `youtube -> yt-dlp`、`bilibili -> BBDown` 路由设计
+- UX：补充设置页 BBDown 登录入口与登录状态反馈文案
+- sprint-status：新增 `10-9` 条目并调整 E10 状态
+
+Technical Impact:
+- 新增/扩展服务抽象以支持 Bilibili 专用引擎
+- 增加 BBDown 进程调用与错误映射（登录缺失、网络、风控）
+- 应用关闭时需统一管理 yt-dlp 与 BBDown 子进程生命周期
+
+### 3. Recommended Approach
+
+Selected Path: Option 1 (Direct Adjustment)
+
+Rationale:
+- 属于增量能力，直接新增 Story 成本最低、边界最清晰
+- 不影响既有架构主线，符合“可替换服务层”原则
+- 用户价值直接且高优先：解决 Bilibili 可用性与恢复路径
+
+Effort: Medium  
+Risk: Medium
+
+### 4. Detailed Change Proposals (All Approved)
+
+#### 4.1 Epic/Story Proposal
+
+Story: `10-9-bilibili-bbdown-engine-and-login-entry`  
+Section: `epics.md` 的 E10 增量故事
+
+OLD:
+- E10 当前无 BBDown 专项故事
+
+NEW:
+- 新增 `10-9-bilibili-bbdown-engine-and-login-entry`
+- 验收标准：
+  - Bilibili 搜索与播放解析使用 BBDown（不走 yt-dlp）
+  - 设置页提供 BBDown 一键登录入口（A）
+  - 登录成功/失败有明确反馈与恢复指引
+  - YouTube 路径保持现状无回归
+
+#### 4.2 PRD Proposal
+
+Artifact: `prd.md`  
+Section: `FR8-FR10`、`系统与设置`
+
+OLD:
+- 仅定义平台能力，不区分具体引擎策略
+
+NEW:
+- 补充平台策略约束：`youtube -> yt-dlp`，`bilibili -> BBDown`
+- 增加设置能力条目：BBDown 一键登录入口与状态反馈
+
+#### 4.3 Architecture + UX Proposal
+
+Artifacts:
+- `architecture.md`：新增平台路由与 BBDown 服务职责
+- `ux-design-specification.md`：设置页新增 BBDown 登录入口与状态文案
+
+OLD:
+- 统一 yt-dlp 服务描述；无 BBDown 登录交互
+
+NEW:
+- 引入平台路由说明与 BBDown 子进程管理要求
+- 增加设置入口与失败引导文案（“前往设置执行 BBDown 登录”）
+
+### 5. Implementation Handoff
+
+Scope Classification: Moderate
+
+Handoff Recipients:
+- Scrum Master / PO：回填故事并更新优先级
+- Developer：实现 10-9（服务路由、登录入口、错误提示）
+- Reviewer/QA：重点验证 Bilibili 链路、YouTube 零回归、登录失败恢复路径
+
+Success Criteria:
+- 选择 Bilibili 时搜索/播放解析走 BBDown 并稳定可用
+- 设置页可一键触发 BBDown 登录，结果可感知
+- 关键失败场景具备可理解提示与可执行下一步
+
+### Checklist Status Snapshot
+
+- 1.1 Trigger Story Identification: [x] Done（新增需求，无现有 Story）
+- 1.2 Core Problem Definition: [x] Done
+- 1.3 Evidence Collection: [x] Done
+- 2.1~2.5 Epic Impact Assessment: [x] Done
+- 3.1~3.4 Artifact Conflict Analysis: [x] Done
+- 4.1~4.4 Path Forward Selection: [x] Done
+- 5.1~5.5 Proposal Components: [x] Done
+- 6.1 Proposal Self-Review: [x] Done
+- 6.2 Proposal Accuracy Check: [x] Done
+- 6.3 User Approval: [x] Done（用户指令“approve all”）
+- 6.4 sprint-status 同步: [x] Done
+- 6.5 Handoff Confirmation: [x] Done
+
+### Approval and Handoff Log
+
+- Final Approval: Approved (`approve all`)
+- Scope Classification: Moderate
+- Routed To:
+  - Scrum Master / PO：新增 `10-9` 并调整 E10 状态
+  - Developer：按提案实现 BBDown 分流与登录入口
+  - Reviewer / QA：执行回归与失败路径验证

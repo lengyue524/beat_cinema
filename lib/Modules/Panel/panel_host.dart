@@ -25,41 +25,39 @@ class PanelHost extends StatelessWidget {
               }
             },
           },
-          child: Focus(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              width: state.isOpen ? panelWidth : 0,
-              clipBehavior: Clip.hardEdge,
-              decoration: const BoxDecoration(
-                color: AppColors.surface1,
-                border: Border(
-                  left: BorderSide(color: AppColors.brandPurple, width: 1),
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            width: state.isOpen ? panelWidth : 0,
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(
+              color: AppColors.surface1,
+              border: Border(
+                left: BorderSide(color: AppColors.brandPurple, width: 1),
               ),
-              child: state.isOpen && state.contentType != null
-                  ? OverflowBox(
-                      alignment: Alignment.topLeft,
-                      maxWidth: panelWidth,
-                      minWidth: panelWidth,
-                      child: SizedBox(
-                        width: panelWidth,
-                        child: Column(
-                          children: [
-                            _PanelHeader(
-                              title:
-                                  _panelTitle(context, state.contentType!),
-                            ),
-                            Expanded(
-                              child: contentBuilder(
-                                  state.contentType!, state.context),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
             ),
+            child: state.isOpen && state.contentType != null
+                ? OverflowBox(
+                    alignment: Alignment.topLeft,
+                    maxWidth: panelWidth,
+                    minWidth: panelWidth,
+                    child: SizedBox(
+                      width: panelWidth,
+                      child: Column(
+                        children: [
+                          _PanelHeader(
+                            title:
+                                _panelTitle(context, state.contentType!),
+                          ),
+                          Expanded(
+                            child: contentBuilder(
+                                state.contentType!, state.context),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         );
       },

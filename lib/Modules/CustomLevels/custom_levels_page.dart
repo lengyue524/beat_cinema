@@ -48,36 +48,33 @@ class _CustomLevelsPageState extends State<CustomLevelsPage> {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true):
             _toggleSearch,
       },
-      child: Focus(
-        autofocus: true,
-        child: BlocBuilder<CustomLevelsBloc, CustomLevelsState>(
-          builder: (context, state) {
-            if (state is CustomLevelsInitial) {
-              _loadLevels();
-              return _initPage();
-            }
-            if (state is CustomLevelsLoading) {
-              if (state.hasCache && state.cachedLevels.isNotEmpty) {
-                return _buildList(
-                  state.cachedLevels,
-                  loading: true,
-                  loadingState: state,
-                );
-              }
-              return _buildLoadingState(state);
-            }
-            if (state is CustomLevelsError) {
-              return Center(
-                child: Text(state.message,
-                    style: const TextStyle(color: AppColors.error)),
+      child: BlocBuilder<CustomLevelsBloc, CustomLevelsState>(
+        builder: (context, state) {
+          if (state is CustomLevelsInitial) {
+            _loadLevels();
+            return _initPage();
+          }
+          if (state is CustomLevelsLoading) {
+            if (state.hasCache && state.cachedLevels.isNotEmpty) {
+              return _buildList(
+                state.cachedLevels,
+                loading: true,
+                loadingState: state,
               );
             }
-            if (state is CustomLevelsLoaded) {
-              return _buildList(state.filteredLevels);
-            }
-            return const SizedBox.shrink();
-          },
-        ),
+            return _buildLoadingState(state);
+          }
+          if (state is CustomLevelsError) {
+            return Center(
+              child: Text(state.message,
+                  style: const TextStyle(color: AppColors.error)),
+            );
+          }
+          if (state is CustomLevelsLoaded) {
+            return _buildList(state.filteredLevels);
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }
@@ -254,6 +251,7 @@ class _CustomLevelsPageState extends State<CustomLevelsPage> {
                 child: TextField(
                   controller: _searchController,
                   focusNode: _searchFocusNode,
+                  keyboardType: TextInputType.text,
                   decoration: InputDecoration(
                     hintText: l10n?.filter_tips ?? '搜索...',
                     prefixIcon: const Icon(Icons.search, size: 20),

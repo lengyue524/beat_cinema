@@ -71,6 +71,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
     on<DismissExportResultEvent>(_onDismissExportResult);
     on<RebuildPlaylistHashIndexEvent>(_onRebuildHashIndex);
     on<DismissPlaylistRebuildNoticeEvent>(_onDismissRebuildNotice);
+    on<RefreshMatchedLevelEvent>(_onRefreshMatchedLevel);
 
     _downloadSub = _downloadManager?.taskStream.listen((_) {
       add(DownloadTasksUpdatedEvent());
@@ -350,6 +351,69 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
     DismissPlaylistRebuildNoticeEvent event,
     Emitter<PlaylistState> emit,
   ) {
+    emit(_buildLoadedState());
+  }
+
+  Future<void> _onRefreshMatchedLevel(
+    RefreshMatchedLevelEvent event,
+    Emitter<PlaylistState> emit,
+  ) async {
+    final levelPath = event.levelPath.trim();
+    if (levelPath.isEmpty) return;
+    final parsed = await _levelParseService.parseSingleLevel(levelPath);
+    if (parsed == null) {
+      log.w('[Playlist] refresh matched level skipped path=$levelPath');
+      return;
+    }
+    final normalizedTarget = levelPath.toLowerCase();
+    final levelIndex = _levels.indexWhere(
+      (item) => item.levelPath.trim().toLowerCase() == normalizedTarget,
+    );
+    if (levelIndex >= 0) {
+      _levels[levelIndex] = parsed;
+    } else {
+      _levels = List<LevelMetadata>.from(_levels)..add(parsed);
+    }
+
+    var playlistsChanged = false;
+    final nextPlaylists = <PlaylistWithStatus>[];
+    for (final playlist in _playlists) {
+      var songsChanged = false;
+      final nextSongs = <PlaylistSongWithStatus>[];
+      for (final songStatus in playlist.songs) {
+        final matched = songStatus.matchedLevel;
+        if (matched == null ||
+            matched.levelPath.trim().toLowerCase() != normalizedTarget) {
+          nextSongs.add(songStatus);
+          continue;
+        }
+        songsChanged = true;
+        nextSongs.add(
+          PlaylistSongWithStatus(
+            song: songStatus.song,
+            matchedLevel: parsed,
+            downloading: songStatus.downloading,
+            downloadError: songStatus.downloadError,
+          ),
+        );
+      }
+      if (!songsChanged) {
+        nextPlaylists.add(playlist);
+        continue;
+      }
+      playlistsChanged = true;
+      nextPlaylists.add(
+        PlaylistWithStatus(
+          info: playlist.info,
+          songs: nextSongs,
+          matchedCount: nextSongs.where((song) => song.matchedLevel != null).length,
+          configuredCount:
+              nextSongs.where((song) => song.matchedLevel?.cinemaConfig != null).length,
+        ),
+      );
+    }
+    if (!playlistsChanged) return;
+    _playlists = nextPlaylists;
     emit(_buildLoadedState());
   }
 

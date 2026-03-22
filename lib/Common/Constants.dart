@@ -8,6 +8,7 @@ class Constants {
   static const String customLevelInfoName = "info.dat";
   static const String cinemaConfigFileName = "cinema-video.json";
   static const String ytDlpName = "yt-dlp.exe";
+  static const String bbDownName = "BBDown.exe";
   static const String youtubeDLConfig = "yt-dlp.conf";
 
   static const String sharedPreferencesAppLocal = "sharedPreferencesAppLocal";

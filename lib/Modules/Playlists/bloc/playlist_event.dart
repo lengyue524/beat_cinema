@@ -47,3 +47,8 @@ class DismissExportResultEvent extends PlaylistEvent {}
 class RebuildPlaylistHashIndexEvent extends PlaylistEvent {}
 
 class DismissPlaylistRebuildNoticeEvent extends PlaylistEvent {}
+
+class RefreshMatchedLevelEvent extends PlaylistEvent {
+  RefreshMatchedLevelEvent(this.levelPath);
+  final String levelPath;
+}

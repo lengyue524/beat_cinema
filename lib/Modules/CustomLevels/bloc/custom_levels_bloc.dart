@@ -30,6 +30,7 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
         _cacheService = cacheService ?? CacheService(),
         super(CustomLevelsInitial()) {
     on<ReloadCustomLevelsEvent>(_onReload);
+    on<RefreshSingleLevelEvent>(_onRefreshSingleLevel);
     on<LoadCachedCustomLevelsEvent>(_onLoadCached);
     on<SearchQueryChanged>(_onSearchChanged);
     on<FilterChanged>(_onFilterChanged);
@@ -188,6 +189,32 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
       _allLevels = cached;
       emit(_buildLoadedState());
     }
+  }
+
+  Future<void> _onRefreshSingleLevel(
+    RefreshSingleLevelEvent event,
+    Emitter<CustomLevelsState> emit,
+  ) async {
+    final levelPath = event.levelPath.trim();
+    if (levelPath.isEmpty) return;
+    final parsed = await _parseService.parseSingleLevel(levelPath);
+    if (parsed == null) {
+      log.w('[CustomLevels] refresh single level skipped path=$levelPath');
+      return;
+    }
+    final normalizedTarget = levelPath.toLowerCase();
+    final next = List<LevelMetadata>.from(_allLevels);
+    final index = next.indexWhere(
+      (item) => item.levelPath.trim().toLowerCase() == normalizedTarget,
+    );
+    if (index >= 0) {
+      next[index] = parsed;
+    } else {
+      next.add(parsed);
+    }
+    _allLevels = next;
+    unawaited(_cacheService.putAll([parsed]));
+    emit(_buildLoadedState());
   }
 
   void _onSearchChanged(

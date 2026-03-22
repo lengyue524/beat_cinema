@@ -127,6 +127,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'yt-dlp not found, please install it first';
 
   @override
+  String get error_bbdown_not_found =>
+      'BBDown not found, please place BBDown.exe in Libs directory';
+
+  @override
+  String get error_bbdown_login_required =>
+      'Bilibili resource requires login, please run BBDown login in settings';
+
+  @override
+  String get error_bbdown_network =>
+      'BBDown failed to process this video, please retry';
+
+  @override
+  String get error_bbdown_unknown => 'BBDown processing failed';
+
+  @override
   String get error_ytdlp_search_timeout => 'Search timed out, try again';
 
   @override
@@ -289,6 +304,63 @@ class AppLocalizationsEn extends AppLocalizations {
   String get config_proxy_saved_address => 'Proxy address saved';
 
   @override
+  String get config_section_bbdown_title => 'BBDown';
+
+  @override
+  String get config_section_bbdown_subtitle =>
+      'Bilibili engine login and session management';
+
+  @override
+  String get config_label_bbdown_login => 'BBDown Login';
+
+  @override
+  String get config_bbdown_login_action => 'Start Login';
+
+  @override
+  String get config_bbdown_missing_hint =>
+      'BBDown.exe not detected. Place it in the Libs directory before login.';
+
+  @override
+  String get config_bbdown_download_action => 'Download Latest';
+
+  @override
+  String get config_bbdown_download_started =>
+      'Start downloading latest BBDown...';
+
+  @override
+  String get config_bbdown_download_done => 'BBDown downloaded successfully';
+
+  @override
+  String get config_bbdown_download_failed =>
+      'Failed to download latest BBDown';
+
+  @override
+  String get config_bbdown_login_started => 'BBDown login window started';
+
+  @override
+  String get config_bbdown_login_failed => 'Failed to start BBDown login';
+
+  @override
+  String get config_bbdown_login_success =>
+      'BBDown login detected successfully';
+
+  @override
+  String get config_bbdown_login_pending =>
+      'Login not detected yet. Complete login and refresh status.';
+
+  @override
+  String get config_bbdown_login_checking => 'Checking...';
+
+  @override
+  String get config_bbdown_status_logged_in => 'Logged in';
+
+  @override
+  String get config_bbdown_status_not_logged_in => 'Not logged in';
+
+  @override
+  String get config_bbdown_status_unknown => 'Login status unknown';
+
+  @override
   String get config_game_dir_saved => 'Game directory updated';
 
   @override
@@ -397,6 +469,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get search_open_link_failed =>
       'Unable to open the webpage. Please try again.';
+
+  @override
+  String get search_bbdown_missing_fallback =>
+      'BBDown is not installed. Fallback to yt-dlp is active. Install BBDown to enable the dedicated Bilibili engine.';
 
   @override
   String get search_tooltip_play => 'Play in app';

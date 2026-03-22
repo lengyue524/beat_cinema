@@ -8,6 +8,11 @@ class ReloadCustomLevelsEvent extends CustomLevelsEvent {
   final String beatSaberPath;
 }
 
+class RefreshSingleLevelEvent extends CustomLevelsEvent {
+  RefreshSingleLevelEvent(this.levelPath);
+  final String levelPath;
+}
+
 class LoadCachedCustomLevelsEvent extends CustomLevelsEvent {}
 
 class SearchQueryChanged extends CustomLevelsEvent {
