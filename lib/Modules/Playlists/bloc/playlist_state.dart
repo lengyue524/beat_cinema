@@ -5,7 +5,28 @@ sealed class PlaylistState {}
 
 final class PlaylistInitial extends PlaylistState {}
 
-final class PlaylistLoading extends PlaylistState {}
+final class PlaylistLoading extends PlaylistState {
+  final String stage;
+  final int processedSongs;
+  final int totalSongs;
+  final int parsedPlaylists;
+  final int totalPlaylists;
+
+  PlaylistLoading({
+    this.stage = 'loading',
+    this.processedSongs = 0,
+    this.totalSongs = 0,
+    this.parsedPlaylists = 0,
+    this.totalPlaylists = 0,
+  });
+
+  double? get progress {
+    if (totalSongs <= 0) return null;
+    final value = processedSongs / totalSongs;
+    if (value.isNaN || value.isInfinite) return null;
+    return value.clamp(0.0, 1.0);
+  }
+}
 
 final class PlaylistLoaded extends PlaylistState {
   final List<PlaylistWithStatus> playlists;
@@ -14,6 +35,7 @@ final class PlaylistLoaded extends PlaylistState {
   final bool exporting;
   final double exportProgress;
   final ExportResult? exportResult;
+  final PlaylistRebuildNotice? rebuildNotice;
 
   PlaylistLoaded({
     required this.playlists,
@@ -22,10 +44,25 @@ final class PlaylistLoaded extends PlaylistState {
     this.exporting = false,
     this.exportProgress = 0,
     this.exportResult,
+    this.rebuildNotice,
   });
 
   PlaylistWithStatus? get selectedPlaylist =>
       selectedIndex != null ? playlists[selectedIndex!] : null;
+}
+
+class PlaylistRebuildNotice {
+  final bool success;
+  final String message;
+  final int serial;
+  final String? detail;
+
+  const PlaylistRebuildNotice({
+    required this.success,
+    required this.message,
+    required this.serial,
+    this.detail,
+  });
 }
 
 class ExportFailureItem {

@@ -11,5 +11,239 @@
     "search_tips": "搜索",
     "filter_tips": "根据歌名、副标题和作者过滤",
     "set_game_path_tips": "请先设置BeatSaver目录",
-    "search_engine": "搜索引擎"
+    "search_engine": "搜索引擎",
+    "nav_levels": "歌曲列表",
+    "nav_downloads": "下载管理",
+    "nav_settings": "设置",
+    "summary_total": "总数",
+    "summary_configured": "已配置",
+    "summary_downloading": "下载中",
+    "sort_tooltip": "排序",
+    "sort_song_name": "歌名",
+    "sort_author": "作者",
+    "sort_modified": "修改时间",
+    "filter_tooltip": "筛选",
+    "more_tooltip": "更多",
+    "filter_clear": "清除筛选",
+    "status_no_video": "无视频",
+    "status_configured": "已配置",
+    "status_configured_missing_file": "已配置（缺少文件）",
+    "status_downloading": "下载中",
+    "paste_url_hint": "粘贴视频链接（YouTube / Bilibili）",
+    "download_empty": "暂无下载任务",
+    "error_file_locked": "文件被其他程序占用，请关闭后重试",
+    "error_ytdlp_video_unavailable": "视频不可用或已私密",
+    "error_ytdlp_age_restricted": "年龄限制视频，需登录",
+    "error_ytdlp_network": "网络错误，请检查连接",
+    "error_ytdlp_invalid_url": "无效或不支持的链接",
+    "error_ytdlp_not_found": "未找到 yt-dlp，请先安装",
+    "error_ytdlp_search_timeout": "搜索超时，请重试",
+    "error_ytdlp_unknown": "下载发生错误",
+    "error_retry": "重试",
+    "error_ok": "确定",
+    "error_title": "错误",
+    "empty_no_levels": "未找到关卡",
+    "empty_no_levels_desc": "请在设置中配置 Beat Saber 路径",
+    "empty_no_levels_action": "打开设置",
+    "empty_no_search": "无搜索结果",
+    "empty_no_search_desc": "试试其他搜索词",
+    "empty_no_search_action": "清除搜索",
+    "empty_no_filter": "无匹配结果",
+    "empty_no_filter_desc": "没有关卡匹配当前筛选条件",
+    "empty_no_filter_action": "清除筛选",
+    "empty_no_video": "未找到视频",
+    "empty_no_video_desc": "试试其他关键词或换个平台",
+    "empty_no_downloads": "暂无下载任务",
+    "empty_no_downloads_desc": "搜索视频或粘贴链接开始下载",
+
+    "nav_playlists": "播放列表",
+
+    "panel_search": "搜索",
+    "panel_config_edit": "编辑配置",
+    "panel_file_info": "文件信息",
+    "panel_download": "下载",
+    "panel_audio_preview": "音频预览",
+    "panel_video_preview": "视频预览",
+    "panel_sync": "同步校准",
+
+    "config_video_file": "视频文件",
+    "config_title": "标题",
+    "config_author": "作者",
+    "config_video_url": "视频链接",
+    "config_offset": "偏移量 (ms)",
+    "config_duration": "时长 (ms)",
+    "config_loop": "循环播放",
+    "config_save": "保存",
+    "config_saved": "配置已保存",
+    "config_page_title": "应用设置",
+    "config_page_subtitle": "路径、下载策略与代理配置",
+    "config_section_basic_subtitle": "基础环境与偏好设置",
+    "config_section_proxy_title": "代理",
+    "@config_section_proxy_title": {
+        "description": "设置页代理分组标题"
+    },
+    "config_section_proxy_subtitle": "用于下载链路的网络访问策略",
+    "@config_section_proxy_subtitle": {
+        "description": "设置页代理分组副标题"
+    },
+    "config_label_proxy_mode": "代理模式",
+    "@config_label_proxy_mode": {
+        "description": "代理模式字段标签"
+    },
+    "config_label_proxy_address": "代理地址",
+    "@config_label_proxy_address": {
+        "description": "代理地址字段标签"
+    },
+    "config_proxy_mode_system": "系统代理（默认）",
+    "config_proxy_mode_custom": "自定义代理",
+    "config_proxy_mode_none": "不使用代理",
+    "config_proxy_mode_desc_system": "自动读取系统代理配置，推荐日常使用",
+    "config_proxy_mode_desc_custom": "手动指定代理地址，适用于特殊网络环境",
+    "config_proxy_mode_desc_none": "不走代理，直接访问网络",
+    "config_proxy_address_hint": "127.0.0.1:7890 或 http://127.0.0.1:7890",
+    "@config_proxy_address_hint": {
+        "description": "代理地址输入框占位提示"
+    },
+    "config_proxy_saved_mode": "代理模式已更新",
+    "config_proxy_saved_address": "代理地址已保存",
+    "config_game_dir_saved": "游戏目录已更新",
+    "sync_channel_separation": "声道分离",
+    "sync_filter_unavailable": "滤镜不可用",
+    "sync_channel_sep_active": "L=歌曲  R=视频",
+    "config_required": "必填",
+
+    "file_info_no_videos": "该关卡目录中没有视频文件",
+    "file_info_referenced": "已在配置中引用",
+
+    "ctx_search_video": "搜索视频",
+    "ctx_audio_preview": "音频预览",
+    "ctx_video_preview": "视频预览",
+    "ctx_sync_calibration": "同步校准",
+    "ctx_edit_config": "编辑配置",
+    "ctx_file_info": "文件信息",
+    "ctx_open_folder": "打开文件夹",
+    "ctx_copy_name": "复制歌名",
+    "ctx_delete_config": "删除配置",
+    "ctx_download_configured_video": "按配置下载视频",
+    "download_task_config_video_title": "配置视频：{songName}",
+    "@download_task_config_video_title": {
+        "placeholders": {
+            "songName": {
+                "type": "String"
+            }
+        }
+    },
+    "dialog_delete_config_title": "删除配置？",
+    "dialog_delete_config_content": "确认删除 {songName} 的 cinema-video.json 吗？",
+    "@dialog_delete_config_content": {
+        "placeholders": {
+            "songName": {
+                "type": "String"
+            }
+        }
+    },
+    "common_cancel": "取消",
+    "common_delete": "删除",
+    "mini_player_stop": "停止播放",
+    "mini_player_cover_semantic": "当前播放歌曲封面",
+
+    "snack_config_video_url_missing": "当前配置没有可用的视频链接",
+    "snack_download_service_not_ready": "下载服务未初始化，请先设置游戏路径",
+    "snack_video_file_unresolved": "下载完成，但未识别到视频文件",
+    "snack_video_file_recovered": "已补齐视频文件",
+    "snack_video_download_failed": "配置视频下载失败",
+    "snack_video_download_enqueued": "已加入下载队列",
+    "search_tooltip_download": "下载",
+    "search_tooltip_downloaded": "已下载",
+    "search_tooltip_open_link": "打开链接",
+    "sem_status_no_video": "无视频",
+    "sem_status_configured": "视频已配置",
+    "sem_status_configured_missing_file": "视频文件缺失，可下载",
+    "sem_status_downloading": "正在下载视频",
+    "sem_status_error": "视频状态异常",
+    "sem_action_play_video": "播放视频",
+
+    "playlist_empty": "未找到播放列表",
+    "playlist_empty_desc": "请将 .bplist 文件放入 Beat Saber/Playlists 目录",
+    "playlist_songs": "首歌",
+    "playlist_configured": "已配置",
+    "playlist_matched": "已匹配",
+    "playlist_not_installed": "未安装",
+    "playlist_filter_unconfigured": "仅显示未配置",
+    "playlist_list_title": "播放列表",
+    "playlist_export": "导出",
+    "playlist_all_configured": "所有歌曲均已配置",
+    "playlist_export_done": "导出完成",
+    "playlist_rebuild_button": "重建索引",
+    "playlist_rebuild_confirm_title": "重建歌曲索引",
+    "playlist_rebuild_confirm_message": "重建索引可能较慢，是否继续？",
+    "playlist_rebuild_confirm_continue": "继续重建",
+    "playlist_rebuild_stage_scan": "正在准备重建索引...",
+    "playlist_rebuild_stage_hash": "正在重建歌曲哈希索引...",
+    "playlist_rebuild_stage_save": "正在写入索引缓存...",
+    "playlist_rebuild_success": "索引重建完成",
+    "playlist_rebuild_failed": "索引重建失败",
+    "playlist_rebuild_retry": "重试",
+    "playlist_rebuild_error_permission": "没有足够权限访问歌曲目录或缓存目录",
+    "playlist_rebuild_error_path_not_found": "歌曲目录不存在，请检查 Beat Saber 路径",
+    "playlist_rebuild_error_cache_write": "索引缓存写入失败，请检查磁盘和权限",
+    "playlist_rebuild_error_unknown": "重建索引时出现未知错误",
+    "playlist_loading_default": "正在加载歌单...",
+    "playlist_loading_parse_playlists": "正在读取歌单文件...",
+    "playlist_loading_refresh_levels_fast": "正在刷新本地歌曲索引（快速）...",
+    "playlist_loading_refresh_levels_hash": "正在补充歌曲哈希索引（较慢，仅异常时）...",
+    "playlist_loading_match_songs": "正在匹配歌单歌曲...",
+    "playlist_loading_level_progress": "已解析谱面目录 {processed} / {total}  ({percent})",
+    "@playlist_loading_level_progress": {
+        "placeholders": {
+            "processed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            },
+            "percent": {
+                "type": "String"
+            }
+        }
+    },
+    "playlist_loading_song_progress": "已匹配歌曲 {processed} / {total}  ({percent})",
+    "@playlist_loading_song_progress": {
+        "placeholders": {
+            "processed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            },
+            "percent": {
+                "type": "String"
+            }
+        }
+    },
+    "playlist_loading_playlists_progress": "歌单文件 {parsed} / {total}",
+    "@playlist_loading_playlists_progress": {
+        "placeholders": {
+            "parsed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    },
+    "levels_loading_title": "正在加载歌曲列表...",
+    "levels_loading_scanning": "正在扫描歌曲目录...",
+    "levels_loading_parsing": "正在解析歌曲...",
+    "levels_loading_progress": "已解析歌曲 {parsed} / {total}",
+    "@levels_loading_progress": {
+        "placeholders": {
+            "parsed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    }
 }

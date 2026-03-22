@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/App/theme/app_colors.dart';
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/widgets/level_list_view.dart';
 import 'package:beat_cinema/Modules/Playlists/bloc/playlist_bloc.dart';
@@ -11,47 +12,134 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class PlaylistPage extends StatelessWidget {
+class PlaylistPage extends StatefulWidget {
   const PlaylistPage({super.key});
 
   @override
+  State<PlaylistPage> createState() => _PlaylistPageState();
+}
+
+class _PlaylistPageState extends State<PlaylistPage> {
+  final ScrollController _playlistListScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _playlistListScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocListener<CustomLevelsBloc, CustomLevelsState>(
-      listenWhen: (previous, current) =>
-          previous is! CustomLevelsLoaded && current is CustomLevelsLoaded,
-      listener: (context, state) {
-        _loadPlaylists(context);
-      },
-      child: BlocBuilder<PlaylistBloc, PlaylistState>(
-        builder: (context, state) {
-          if (state is PlaylistInitial) {
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<CustomLevelsBloc, CustomLevelsState>(
+          listenWhen: (previous, current) =>
+              previous is! CustomLevelsLoaded && current is CustomLevelsLoaded,
+          listener: (context, state) {
             _loadPlaylists(context);
-            return const Center(child: CircularProgressIndicator.adaptive());
-          }
-          if (state is PlaylistLoading) {
-            return const Center(child: CircularProgressIndicator.adaptive());
-          }
-          if (state is PlaylistError) {
-            return Center(
-              child: Text(state.message,
-                  style: const TextStyle(color: AppColors.error)),
+          },
+        ),
+        BlocListener<PlaylistBloc, PlaylistState>(
+          listenWhen: (previous, current) {
+            if (previous is! PlaylistLoaded || current is! PlaylistLoaded) {
+              return false;
+            }
+            return previous.exportResult != current.exportResult &&
+                current.exportResult != null &&
+                !current.exporting;
+          },
+          listener: (context, state) {
+            final loaded = state as PlaylistLoaded;
+            final result = loaded.exportResult;
+            if (result == null) return;
+            if (result.failedCount == 0) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('导出成功')),
+              );
+              context.read<PlaylistBloc>().add(DismissExportResultEvent());
+            }
+          },
+        ),
+        BlocListener<PlaylistBloc, PlaylistState>(
+          listenWhen: (previous, current) {
+            if (previous is! PlaylistLoaded || current is! PlaylistLoaded) {
+              return false;
+            }
+            return previous.rebuildNotice?.serial !=
+                    current.rebuildNotice?.serial &&
+                current.rebuildNotice != null;
+          },
+          listener: (context, state) {
+            final loaded = state as PlaylistLoaded;
+            final notice = loaded.rebuildNotice;
+            if (notice == null) return;
+            final l10n = AppLocalizations.of(context);
+            final message = notice.success
+                ? (l10n?.playlist_rebuild_success ?? 'Index rebuild completed')
+                : _resolveRebuildFailureMessage(l10n, notice);
+            assert(() {
+              if (!notice.success && (notice.detail ?? '').trim().isNotEmpty) {
+                log.w(
+                  '[PlaylistRebuild] debug detail: ${notice.detail}',
+                );
+              }
+              return true;
+            }());
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: notice.success ? null : AppColors.error,
+                action: notice.success
+                    ? null
+                    : SnackBarAction(
+                        label: l10n?.playlist_rebuild_retry ?? 'Retry',
+                        onPressed: () {
+                          context
+                              .read<PlaylistBloc>()
+                              .add(RebuildPlaylistHashIndexEvent());
+                        },
+                      ),
+              ),
+            );
+            context
+                .read<PlaylistBloc>()
+                .add(DismissPlaylistRebuildNoticeEvent());
+          },
+        ),
+      ],
+      child:
+          BlocBuilder<PlaylistBloc, PlaylistState>(builder: (context, state) {
+        if (state is PlaylistInitial) {
+          _loadPlaylists(context);
+          return const Center(child: CircularProgressIndicator.adaptive());
+        }
+        if (state is PlaylistLoading) {
+          return _PlaylistLoadingView(state: state);
+        }
+        if (state is PlaylistError) {
+          return Center(
+            child: Text(state.message,
+                style: const TextStyle(color: AppColors.error)),
+          );
+        }
+        if (state is PlaylistLoaded) {
+          if (state.selectedPlaylist != null) {
+            return _PlaylistDetail(
+              playlist: state.selectedPlaylist!,
+              filterUnconfigured: state.filterUnconfigured,
+              exporting: state.exporting,
+              exportProgress: state.exportProgress,
+              exportResult: state.exportResult,
             );
           }
-          if (state is PlaylistLoaded) {
-            if (state.selectedPlaylist != null) {
-              return _PlaylistDetail(
-                playlist: state.selectedPlaylist!,
-                filterUnconfigured: state.filterUnconfigured,
-                exporting: state.exporting,
-                exportProgress: state.exportProgress,
-                exportResult: state.exportResult,
-              );
-            }
-            return _PlaylistList(playlists: state.playlists);
-          }
-          return const SizedBox.shrink();
-        },
-      ),
+          return _PlaylistList(
+            playlists: state.playlists,
+            scrollController: _playlistListScrollController,
+            onRebuildIndex: () => _confirmAndRebuild(context),
+          );
+        }
+        return const SizedBox.shrink();
+      }),
     );
   }
 
@@ -70,11 +158,163 @@ class PlaylistPage extends StatelessWidget {
         .read<PlaylistBloc>()
         .add(LoadPlaylistsEvent(appState.beatSaberPath!, levels));
   }
+
+  Future<void> _confirmAndRebuild(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            l10n?.playlist_rebuild_confirm_title ?? 'Rebuild hash index',
+          ),
+          content: Text(
+            l10n?.playlist_rebuild_confirm_message ??
+                'Rebuilding index can be slow. Continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l10n?.common_cancel ?? 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child:
+                  Text(l10n?.playlist_rebuild_confirm_continue ?? 'Continue'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) return;
+    context.read<PlaylistBloc>().add(RebuildPlaylistHashIndexEvent());
+  }
+
+  String _resolveRebuildFailureMessage(
+    AppLocalizations? l10n,
+    PlaylistRebuildNotice notice,
+  ) {
+    final title = l10n?.playlist_rebuild_failed ?? 'Index rebuild failed';
+    final reason = switch (notice.message) {
+      'playlist_rebuild_error_permission' =>
+        l10n?.playlist_rebuild_error_permission ??
+            'Permission denied while rebuilding index',
+      'playlist_rebuild_error_path_not_found' =>
+        l10n?.playlist_rebuild_error_path_not_found ??
+            'Song path does not exist',
+      'playlist_rebuild_error_cache_write' =>
+        l10n?.playlist_rebuild_error_cache_write ??
+            'Failed to write index cache',
+      _ => l10n?.playlist_rebuild_error_unknown ??
+          'Unexpected error while rebuilding index',
+    };
+    return '$title: $reason';
+  }
+}
+
+class _PlaylistLoadingView extends StatelessWidget {
+  const _PlaylistLoadingView({required this.state});
+
+  final PlaylistLoading state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final progress = state.progress;
+    final processed = state.processedSongs;
+    final total = state.totalSongs;
+    final isLevelScanStage = state.stage == 'refresh-levels-fast' ||
+        state.stage == 'refresh-levels-hash' ||
+        state.stage == 'rebuild-index-hash';
+    final stageText = switch (state.stage) {
+      'parse-playlists' =>
+        l10n?.playlist_loading_parse_playlists ?? 'Reading playlist files...',
+      'refresh-levels-fast' => l10n?.playlist_loading_refresh_levels_fast ??
+          'Refreshing local song index (fast)...',
+      'refresh-levels-hash' => l10n?.playlist_loading_refresh_levels_hash ??
+          'Building song hash index (slower, fallback only)...',
+      'match-songs' =>
+        l10n?.playlist_loading_match_songs ?? 'Matching playlist songs...',
+      'rebuild-index-scan' =>
+        l10n?.playlist_rebuild_stage_scan ?? 'Preparing index rebuild...',
+      'rebuild-index-hash' =>
+        l10n?.playlist_rebuild_stage_hash ?? 'Rebuilding song hash index...',
+      'rebuild-index-save' =>
+        l10n?.playlist_rebuild_stage_save ?? 'Saving index cache...',
+      _ => l10n?.playlist_loading_default ?? 'Loading playlists...'
+    };
+    final percentText =
+        progress == null ? '--' : '${(progress * 100).toStringAsFixed(1)}%';
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                stageText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                isLevelScanStage
+                    ? (l10n?.playlist_loading_level_progress(
+                            processed, total, percentText) ??
+                        'Parsed level folders $processed / $total  ($percentText)')
+                    : (l10n?.playlist_loading_song_progress(
+                            processed, total, percentText) ??
+                        'Matched songs $processed / $total  ($percentText)'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              LinearProgressIndicator(
+                value: progress,
+                color: AppColors.brandPurple,
+                backgroundColor: AppColors.surface3,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                l10n?.playlist_loading_playlists_progress(
+                      state.parsedPlaylists,
+                      state.totalPlaylists,
+                    ) ??
+                    'Playlist files ${state.parsedPlaylists} / ${state.totalPlaylists}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PlaylistList extends StatelessWidget {
-  const _PlaylistList({required this.playlists});
+  const _PlaylistList({
+    required this.playlists,
+    required this.scrollController,
+    required this.onRebuildIndex,
+  });
   final List<PlaylistWithStatus> playlists;
+  final ScrollController scrollController;
+  final VoidCallback onRebuildIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -89,31 +329,68 @@ class _PlaylistList extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             Text(
               l10n?.playlist_empty ?? 'No playlists found',
-              style: const TextStyle(
-                  color: AppColors.textPrimary, fontSize: 16),
+              style:
+                  const TextStyle(color: AppColors.textPrimary, fontSize: 16),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               l10n?.playlist_empty_desc ??
                   'Place .bplist files in Beat Saber/Playlists',
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 14),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      itemCount: playlists.length,
-      itemBuilder: (context, index) {
-        final pl = playlists[index];
-        return _PlaylistTile(
-          playlist: pl,
-          onTap: () =>
-              context.read<PlaylistBloc>().add(SelectPlaylistEvent(index)),
-        );
-      },
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.xs,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n?.playlist_list_title ?? 'Playlists',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Tooltip(
+                message: l10n?.playlist_rebuild_button ?? 'Rebuild index',
+                child: IconButton(
+                  onPressed: onRebuildIndex,
+                  icon: const Icon(Icons.restart_alt, size: 20),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            key: const PageStorageKey<String>('playlist_list_scroll'),
+            controller: scrollController,
+            itemCount: playlists.length,
+            itemBuilder: (context, index) {
+              final pl = playlists[index];
+              return _PlaylistTile(
+                playlist: pl,
+                onTap: () => context
+                    .read<PlaylistBloc>()
+                    .add(SelectPlaylistEvent(index)),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -181,7 +458,9 @@ class _PlaylistTile extends StatelessWidget {
         return ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: Image.memory(bytes,
-              width: 40, height: 40, fit: BoxFit.cover,
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => _defaultCover()),
         );
       } catch (_) {
@@ -199,8 +478,8 @@ class _PlaylistTile extends StatelessWidget {
         color: AppColors.surface3,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: const Icon(Icons.queue_music,
-          color: AppColors.brandPurple, size: 24),
+      child:
+          const Icon(Icons.queue_music, color: AppColors.brandPurple, size: 24),
     );
   }
 }
@@ -233,10 +512,8 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
                 s.matchedLevel == null || s.matchedLevel!.cinemaConfig == null)
             .toList()
         : widget.playlist.songs;
-    final matchedLevels = songs
-        .map((s) => s.matchedLevel)
-        .whereType<LevelMetadata>()
-        .toList();
+    final matchedLevels =
+        songs.map((s) => s.matchedLevel).whereType<LevelMetadata>().toList();
     final missingSongs = songs.where((s) => s.matchedLevel == null).toList();
     final unmatchedCount = songs.length - matchedLevels.length;
 
@@ -247,7 +524,7 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
           _buildMissingSongsSection(context, l10n, missingSongs),
         if (unmatchedCount > 0)
           _buildUnmatchedBanner(context, l10n, unmatchedCount, songs.length),
-        if (widget.exportResult != null)
+        if (widget.exportResult != null && widget.exportResult!.failedCount > 0)
           _buildExportResultBanner(context, widget.exportResult!),
         if (widget.exporting)
           LinearProgressIndicator(
@@ -266,7 +543,10 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
                     style: const TextStyle(color: AppColors.textSecondary),
                   ),
                 )
-              : LevelListView.fromLevels(levels: matchedLevels),
+              : LevelListView.fromLevels(
+                  levels: matchedLevels,
+                  autoReloadAfterConfigDownload: false,
+                ),
         ),
       ],
     );
@@ -337,6 +617,16 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
                                   color: AppColors.error,
                                   fontSize: 11,
                                 ),
+                              )
+                            else if (item.song.missingKey)
+                              const Text(
+                                '歌单条目缺少 key，已自动回退 hash 匹配',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.warning,
+                                  fontSize: 11,
+                                ),
                               ),
                           ],
                         ),
@@ -394,15 +684,14 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
     );
   }
 
-  Widget _buildExportResultBanner(
-      BuildContext context, ExportResult result) {
+  Widget _buildExportResultBanner(BuildContext context, ExportResult result) {
     final failed = result.failedCount;
     final success = result.successCount;
     final hasFailures = failed > 0;
     return Container(
       width: double.infinity,
-      margin:
-          const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 0),
+      margin: const EdgeInsets.fromLTRB(
+          AppSpacing.md, AppSpacing.xs, AppSpacing.md, 0),
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: hasFailures ? AppColors.surface3 : AppColors.surface2,
@@ -427,9 +716,8 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
           ),
           if (hasFailures)
             TextButton(
-              onPressed: () => context
-                  .read<PlaylistBloc>()
-                  .add(RetryFailedExportEvent()),
+              onPressed: () =>
+                  context.read<PlaylistBloc>().add(RetryFailedExportEvent()),
               child: const Text('仅重试失败项'),
             ),
         ],
@@ -443,8 +731,7 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: const BoxDecoration(
-        border: Border(
-            bottom: BorderSide(color: AppColors.divider, width: 1)),
+        border: Border(bottom: BorderSide(color: AppColors.divider, width: 1)),
       ),
       child: Row(
         children: [
@@ -476,8 +763,8 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
             ),
           ),
           Tooltip(
-            message: l10n?.playlist_filter_unconfigured ??
-                'Show unconfigured only',
+            message:
+                l10n?.playlist_filter_unconfigured ?? 'Show unconfigured only',
             child: IconButton(
               icon: Icon(
                 Icons.filter_alt,
@@ -501,8 +788,7 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
           Tooltip(
             message: l10n?.playlist_export ?? 'Export',
             child: IconButton(
-              icon:
-                  const Icon(Icons.drive_folder_upload, size: 20),
+              icon: const Icon(Icons.drive_folder_upload, size: 20),
               onPressed: widget.exporting ? null : () => _startExport(context),
             ),
           ),

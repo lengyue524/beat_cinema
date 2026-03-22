@@ -11,5 +11,239 @@
     "search_tips": "Search...",
     "filter_tips": "Filter by Song name, Sub name, Author",
     "set_game_path_tips": "Set BeatSaver Path in settings",
-    "search_engine": "Search Engine"
+    "search_engine": "Search Engine",
+    "nav_levels": "Levels",
+    "nav_downloads": "Downloads",
+    "nav_settings": "Settings",
+    "summary_total": "Total",
+    "summary_configured": "Configured",
+    "summary_downloading": "Downloading",
+    "sort_tooltip": "Sort",
+    "sort_song_name": "Song Name",
+    "sort_author": "Author",
+    "sort_modified": "Modified",
+    "filter_tooltip": "Filter",
+    "more_tooltip": "More",
+    "filter_clear": "Clear filters",
+    "status_no_video": "No video",
+    "status_configured": "Configured",
+    "status_configured_missing_file": "Configured (missing file)",
+    "status_downloading": "Downloading",
+    "paste_url_hint": "Paste video URL (YouTube / Bilibili)",
+    "download_empty": "No downloads yet",
+    "error_file_locked": "File is locked by another program, please close it and retry",
+    "error_ytdlp_video_unavailable": "Video unavailable or private",
+    "error_ytdlp_age_restricted": "Age-restricted video, sign in required",
+    "error_ytdlp_network": "Network error, please check your connection",
+    "error_ytdlp_invalid_url": "Invalid or unsupported URL",
+    "error_ytdlp_not_found": "yt-dlp not found, please install it first",
+    "error_ytdlp_search_timeout": "Search timed out, try again",
+    "error_ytdlp_unknown": "Download error occurred",
+    "error_retry": "Retry",
+    "error_ok": "OK",
+    "error_title": "Error",
+    "empty_no_levels": "No levels found",
+    "empty_no_levels_desc": "Set your Beat Saber path in settings",
+    "empty_no_levels_action": "Open Settings",
+    "empty_no_search": "No results",
+    "empty_no_search_desc": "Try a different search term",
+    "empty_no_search_action": "Clear search",
+    "empty_no_filter": "No matches",
+    "empty_no_filter_desc": "No levels match the current filters",
+    "empty_no_filter_action": "Clear filters",
+    "empty_no_video": "No videos found",
+    "empty_no_video_desc": "Try different keywords or another platform",
+    "empty_no_downloads": "No downloads",
+    "empty_no_downloads_desc": "Search for videos or paste a URL to start",
+
+    "nav_playlists": "Playlists",
+
+    "panel_search": "Search",
+    "panel_config_edit": "Edit Config",
+    "panel_file_info": "File Info",
+    "panel_download": "Download",
+    "panel_audio_preview": "Audio Preview",
+    "panel_video_preview": "Video Preview",
+    "panel_sync": "Sync Calibration",
+
+    "config_video_file": "Video File",
+    "config_title": "Title",
+    "config_author": "Author",
+    "config_video_url": "Video URL",
+    "config_offset": "Offset (ms)",
+    "config_duration": "Duration (ms)",
+    "config_loop": "Loop",
+    "config_save": "Save",
+    "config_saved": "Config saved",
+    "config_page_title": "App Settings",
+    "config_page_subtitle": "Path, download strategy and proxy configuration",
+    "config_section_basic_subtitle": "Core environment and preferences",
+    "config_section_proxy_title": "Proxy",
+    "@config_section_proxy_title": {
+        "description": "Proxy section title on settings page"
+    },
+    "config_section_proxy_subtitle": "Network access strategy for download pipeline",
+    "@config_section_proxy_subtitle": {
+        "description": "Proxy section subtitle on settings page"
+    },
+    "config_label_proxy_mode": "Proxy Mode",
+    "@config_label_proxy_mode": {
+        "description": "Label for proxy mode field"
+    },
+    "config_label_proxy_address": "Proxy Address",
+    "@config_label_proxy_address": {
+        "description": "Label for proxy address field"
+    },
+    "config_proxy_mode_system": "System Proxy (Default)",
+    "config_proxy_mode_custom": "Custom Proxy",
+    "config_proxy_mode_none": "No Proxy",
+    "config_proxy_mode_desc_system": "Auto-detect system proxy, recommended for daily use",
+    "config_proxy_mode_desc_custom": "Specify proxy server manually for restricted networks",
+    "config_proxy_mode_desc_none": "Direct network access without proxy",
+    "config_proxy_address_hint": "127.0.0.1:7890 or http://127.0.0.1:7890",
+    "@config_proxy_address_hint": {
+        "description": "Placeholder hint for proxy address input"
+    },
+    "config_proxy_saved_mode": "Proxy mode updated",
+    "config_proxy_saved_address": "Proxy address saved",
+    "config_game_dir_saved": "Game directory updated",
+    "sync_channel_separation": "Channel separation",
+    "sync_filter_unavailable": "Filter unavailable",
+    "sync_channel_sep_active": "L=Song R=Video",
+    "config_required": "Required",
+
+    "file_info_no_videos": "No video files in this level",
+    "file_info_referenced": "Referenced in config",
+
+    "ctx_search_video": "Search video",
+    "ctx_audio_preview": "Audio preview",
+    "ctx_video_preview": "Video preview",
+    "ctx_sync_calibration": "Sync calibration",
+    "ctx_edit_config": "Edit config",
+    "ctx_file_info": "File info",
+    "ctx_open_folder": "Open folder",
+    "ctx_copy_name": "Copy song name",
+    "ctx_delete_config": "Delete config",
+    "ctx_download_configured_video": "Download configured video",
+    "download_task_config_video_title": "Config Video: {songName}",
+    "@download_task_config_video_title": {
+        "placeholders": {
+            "songName": {
+                "type": "String"
+            }
+        }
+    },
+    "dialog_delete_config_title": "Delete config?",
+    "dialog_delete_config_content": "Remove cinema-video.json for {songName}?",
+    "@dialog_delete_config_content": {
+        "placeholders": {
+            "songName": {
+                "type": "String"
+            }
+        }
+    },
+    "common_cancel": "Cancel",
+    "common_delete": "Delete",
+    "mini_player_stop": "Stop playback",
+    "mini_player_cover_semantic": "Cover art of current playing song",
+
+    "snack_config_video_url_missing": "No valid video URL in current config",
+    "snack_download_service_not_ready": "Download service not ready, please set game path first",
+    "snack_video_file_unresolved": "Download finished but no video file detected",
+    "snack_video_file_recovered": "Video file recovered",
+    "snack_video_download_failed": "Configured video download failed",
+    "snack_video_download_enqueued": "Added to download queue",
+    "search_tooltip_download": "Download",
+    "search_tooltip_downloaded": "Downloaded",
+    "search_tooltip_open_link": "Open link",
+    "sem_status_no_video": "No video",
+    "sem_status_configured": "Video configured",
+    "sem_status_configured_missing_file": "Video missing, download available",
+    "sem_status_downloading": "Downloading video",
+    "sem_status_error": "Video status error",
+    "sem_action_play_video": "Play video",
+
+    "playlist_empty": "No playlists found",
+    "playlist_empty_desc": "Place .bplist files in Beat Saber/Playlists",
+    "playlist_songs": "songs",
+    "playlist_configured": "configured",
+    "playlist_matched": "matched",
+    "playlist_not_installed": "Not installed",
+    "playlist_filter_unconfigured": "Show unconfigured only",
+    "playlist_list_title": "Playlists",
+    "playlist_export": "Export",
+    "playlist_all_configured": "All songs are configured",
+    "playlist_export_done": "Export complete",
+    "playlist_rebuild_button": "Rebuild index",
+    "playlist_rebuild_confirm_title": "Rebuild song index",
+    "playlist_rebuild_confirm_message": "Rebuilding index can be slow. Continue?",
+    "playlist_rebuild_confirm_continue": "Continue rebuild",
+    "playlist_rebuild_stage_scan": "Preparing index rebuild...",
+    "playlist_rebuild_stage_hash": "Rebuilding song hash index...",
+    "playlist_rebuild_stage_save": "Saving index cache...",
+    "playlist_rebuild_success": "Index rebuild completed",
+    "playlist_rebuild_failed": "Index rebuild failed",
+    "playlist_rebuild_retry": "Retry",
+    "playlist_rebuild_error_permission": "Permission denied for song or cache directory",
+    "playlist_rebuild_error_path_not_found": "Song directory not found, please verify Beat Saber path",
+    "playlist_rebuild_error_cache_write": "Failed to write index cache, check disk and permissions",
+    "playlist_rebuild_error_unknown": "Unexpected error while rebuilding index",
+    "playlist_loading_default": "Loading playlists...",
+    "playlist_loading_parse_playlists": "Reading playlist files...",
+    "playlist_loading_refresh_levels_fast": "Refreshing local song index (fast)...",
+    "playlist_loading_refresh_levels_hash": "Building song hash index (slower, fallback only)...",
+    "playlist_loading_match_songs": "Matching playlist songs...",
+    "playlist_loading_level_progress": "Parsed level folders {processed} / {total}  ({percent})",
+    "@playlist_loading_level_progress": {
+        "placeholders": {
+            "processed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            },
+            "percent": {
+                "type": "String"
+            }
+        }
+    },
+    "playlist_loading_song_progress": "Matched songs {processed} / {total}  ({percent})",
+    "@playlist_loading_song_progress": {
+        "placeholders": {
+            "processed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            },
+            "percent": {
+                "type": "String"
+            }
+        }
+    },
+    "playlist_loading_playlists_progress": "Playlist files {parsed} / {total}",
+    "@playlist_loading_playlists_progress": {
+        "placeholders": {
+            "parsed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    },
+    "levels_loading_title": "Loading songs...",
+    "levels_loading_scanning": "Scanning song folders...",
+    "levels_loading_parsing": "Parsing songs...",
+    "levels_loading_progress": "Parsed songs: {parsed} / {total}",
+    "@levels_loading_progress": {
+        "placeholders": {
+            "parsed": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    }
 }

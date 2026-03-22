@@ -41,3 +41,9 @@ class DownloadAllMissingSongsEvent extends PlaylistEvent {
 }
 
 class RetryFailedExportEvent extends PlaylistEvent {}
+
+class DismissExportResultEvent extends PlaylistEvent {}
+
+class RebuildPlaylistHashIndexEvent extends PlaylistEvent {}
+
+class DismissPlaylistRebuildNoticeEvent extends PlaylistEvent {}
