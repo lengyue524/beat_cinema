@@ -380,6 +380,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String get search_tooltip_open_link => '打开链接';
 
   @override
+  String get search_open_link_failed => '无法打开网页链接，请稍后重试';
+
+  @override
+  String get search_tooltip_play => '应用内播放';
+
+  @override
+  String get search_tooltip_play_loading => '正在准备播放';
+
+  @override
+  String get search_play_failed => '视频播放失败，请稍后重试';
+
+  @override
+  String get search_play_fallback_title => '切换下载播放模式';
+
+  @override
+  String get search_play_fallback_message => '在线播放失败，是否切换为下载后播放？';
+
+  @override
+  String get search_play_fallback_confirm => '切换并播放';
+
+  @override
+  String get search_play_fallback_loading => '正在下载视频用于本地播放...';
+
+  @override
+  String search_play_failed_with_reason(String reason) {
+    return '视频播放失败：$reason';
+  }
+
+  @override
   String get sem_status_no_video => '无视频';
 
   @override

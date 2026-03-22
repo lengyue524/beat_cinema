@@ -77,14 +77,16 @@ class LevelListTile extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            metadata.songName,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 14,
+                          SelectionArea(
+                            child: Text(
+                              metadata.songName,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           Row(
                             children: [

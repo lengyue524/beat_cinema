@@ -395,6 +395,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get search_tooltip_open_link => 'Open link';
 
   @override
+  String get search_open_link_failed =>
+      'Unable to open the webpage. Please try again.';
+
+  @override
+  String get search_tooltip_play => 'Play in app';
+
+  @override
+  String get search_tooltip_play_loading => 'Preparing playback';
+
+  @override
+  String get search_play_failed => 'Failed to play video. Please try again.';
+
+  @override
+  String get search_play_fallback_title => 'Switch to download playback';
+
+  @override
+  String get search_play_fallback_message =>
+      'Remote playback failed. Download first and play locally?';
+
+  @override
+  String get search_play_fallback_confirm => 'Switch and play';
+
+  @override
+  String get search_play_fallback_loading =>
+      'Downloading video for local playback...';
+
+  @override
+  String search_play_failed_with_reason(String reason) {
+    return 'Failed to play video: $reason';
+  }
+
+  @override
   String get sem_status_no_video => 'No video';
 
   @override

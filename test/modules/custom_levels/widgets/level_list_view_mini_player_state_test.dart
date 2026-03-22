@@ -16,6 +16,16 @@ LevelMetadata _meta({
 }
 
 void main() {
+  test('seek post action resumes when player was playing', () {
+    final action = resolvePreviewSeekPostAction(wasPlaying: true);
+    expect(action, PreviewSeekPostAction.resumePlaying);
+  });
+
+  test('seek post action keeps paused when player was paused', () {
+    final action = resolvePreviewSeekPostAction(wasPlaying: false);
+    expect(action, PreviewSeekPostAction.keepPaused);
+  });
+
   test('returns null when not playing', () {
     final data = resolveMiniPlayerDisplayData(
       previewPlaying: false,

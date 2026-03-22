@@ -98,26 +98,6 @@ class _ConfigPageState extends State<ConfigPage> {
                     },
                   ),
                 ),
-                _buildLabeledField(
-                  context: context,
-                  label: l10n?.search_engine ?? 'Search Engine',
-                  field: DropdownButtonFormField<CinemaSearchPlatform>(
-                    initialValue: state.cinemaSearchPlatform,
-                    decoration: const InputDecoration(isDense: true),
-                    items: CinemaSearchPlatform.values
-                        .map((e) => DropdownMenuItem<CinemaSearchPlatform>(
-                              value: e,
-                              child: Text(e.name),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      context
-                          .read<AppBloc>()
-                          .add(AppCinemaSearchPlatformUpdateEvent(value));
-                    },
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),

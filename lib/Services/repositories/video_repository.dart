@@ -48,7 +48,8 @@ class VideoInfo {
   factory VideoInfo.fromMap(Map<String, dynamic> map) {
     return VideoInfo(
       title: map['title'] as String? ?? '',
-      url: map['original_url'] as String? ?? map['url'] as String? ?? '',
+      // Prefer direct/playable stream URL for in-app playback.
+      url: map['url'] as String? ?? map['original_url'] as String? ?? '',
       durationSeconds: (map['duration'] as num?)?.toInt() ?? 0,
       ext: map['ext'] as String?,
     );

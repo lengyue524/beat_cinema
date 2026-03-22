@@ -46,6 +46,15 @@ class MiniPlayerDisplayData {
   final String? coverFilePath;
 }
 
+enum PreviewSeekPostAction { keepPaused, resumePlaying }
+
+@visibleForTesting
+PreviewSeekPostAction resolvePreviewSeekPostAction({required bool wasPlaying}) {
+  return wasPlaying
+      ? PreviewSeekPostAction.resumePlaying
+      : PreviewSeekPostAction.keepPaused;
+}
+
 MiniPlayerDisplayData? resolveMiniPlayerDisplayData({
   required bool previewPlaying,
   required String? playingLevelPath,
@@ -126,9 +135,13 @@ class _LevelListViewState extends State<LevelListView> {
   Player? _previewPlayer;
   String? _playingLevelPath;
   bool _previewPlaying = false;
+  Duration _previewPosition = Duration.zero;
+  Duration _previewDuration = Duration.zero;
   String? _playingSongNameCache;
   String? _playingCoverFilePathCache;
   String? _selectedLevelPath;
+  StreamSubscription<Duration>? _previewPositionSubscription;
+  StreamSubscription<Duration>? _previewDurationSubscription;
   StreamSubscription<List<DownloadTask>>? _downloadTaskSubscription;
   DownloadManager? _boundDownloadManager;
   final Map<String, _PendingConfigDownload> _pendingConfigDownloads = {};
@@ -178,10 +191,22 @@ class _LevelListViewState extends State<LevelListView> {
     _previewPlayer!.stream.playing.listen((playing) {
       if (mounted) setState(() => _previewPlaying = playing);
     });
+    _previewPositionSubscription = _previewPlayer!.stream.position.listen((pos) {
+      if (mounted) {
+        setState(() => _previewPosition = pos);
+      }
+    });
+    _previewDurationSubscription = _previewPlayer!.stream.duration.listen((dur) {
+      if (mounted) {
+        setState(() => _previewDuration = dur);
+      }
+    });
     _previewPlayer!.stream.completed.listen((completed) {
       if (completed && mounted) {
         setState(() {
           _previewPlaying = false;
+          _previewPosition = Duration.zero;
+          _previewDuration = Duration.zero;
           _playingLevelPath = null;
           _playingSongNameCache = null;
           _playingCoverFilePathCache = null;
@@ -205,6 +230,8 @@ class _LevelListViewState extends State<LevelListView> {
     if (!mounted) return;
     setState(() {
       _previewPlaying = false;
+      _previewPosition = Duration.zero;
+      _previewDuration = Duration.zero;
       _playingLevelPath = null;
       _playingSongNameCache = null;
       _playingCoverFilePathCache = null;
@@ -217,7 +244,31 @@ class _LevelListViewState extends State<LevelListView> {
       return;
     }
     _previewPlayer = null;
+    _previewPositionSubscription?.cancel();
+    _previewPositionSubscription = null;
+    _previewDurationSubscription?.cancel();
+    _previewDurationSubscription = null;
     unawaited(playerService.disposePlayer(player));
+  }
+
+  void _seekAudioPreview(Duration target) {
+    final player = _previewPlayer;
+    if (player == null) return;
+    final wasPlaying = _previewPlaying;
+    final maxMs = _previewDuration.inMilliseconds;
+    final safeMs = maxMs > 0
+        ? target.inMilliseconds.clamp(0, maxMs)
+        : target.inMilliseconds.clamp(0, target.inMilliseconds);
+    final safeTarget = Duration(milliseconds: safeMs);
+    player.seek(safeTarget);
+    switch (resolvePreviewSeekPostAction(wasPlaying: wasPlaying)) {
+      case PreviewSeekPostAction.resumePlaying:
+        player.play();
+        break;
+      case PreviewSeekPostAction.keepPaused:
+        player.pause();
+        break;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -957,16 +1008,21 @@ class _LevelListViewState extends State<LevelListView> {
           },
         ),
         Positioned(
-          left: AppSpacing.md,
-          right: AppSpacing.md,
+          left: 0,
+          right: 0,
           bottom: AppSpacing.md,
-          child: MiniAudioPlayerBar(
-            visible: showMiniPlayer,
-            songName: miniPlayer?.songName ?? '',
-            onStop: _stopAudioPreview,
-            coverImage: _resolveCoverImageProvider(miniPlayer?.coverFilePath),
-            stopTooltip: l10n?.mini_player_stop ?? '停止播放',
-            coverSemanticLabel: l10n?.mini_player_cover_semantic ?? '当前播放歌曲封面',
+          child: Center(
+            child: MiniAudioPlayerBar(
+              visible: showMiniPlayer,
+              songName: miniPlayer?.songName ?? '',
+              onStop: _stopAudioPreview,
+              position: _previewPosition,
+              duration: _previewDuration,
+              onSeek: _seekAudioPreview,
+              coverImage: _resolveCoverImageProvider(miniPlayer?.coverFilePath),
+              stopTooltip: l10n?.mini_player_stop ?? '停止播放',
+              coverSemanticLabel: l10n?.mini_player_cover_semantic ?? '当前播放歌曲封面',
+            ),
           ),
         ),
       ],

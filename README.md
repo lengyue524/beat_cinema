@@ -15,6 +15,7 @@ Supported platform: Windows only.
 - **Songs page (Custom Levels)**
   - Search, sort, and filter songs
   - Unified song list rendering with context menu actions
+  - In-app playback for video search results (no external browser redirect)
   - Song/video audio sync calibration support (offset adjustment)
   - Configured-missing-video status with one-click re-download
   - Download tool routing:
@@ -61,6 +62,9 @@ Supported platform: Windows only.
 - Go to **Songs** or **Playlists**
 - Start download from song actions or playlist missing-song actions
 - Manage running tasks in **Downloads**
+- Manual verification checklist (search proxy):
+  - Chinese: `docs/manual-verification/search-proxy-checklist.md`
+  - English: `docs/manual-verification/search-proxy-checklist.en.md`
 
 **⚠️ Due to Bilibili platform restrictions, only downloads up to 480p are supported without logging in.**
 

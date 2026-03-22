@@ -15,6 +15,7 @@ BeatCinema 是 `BeatSaberCinema` 插件的视频资源管理工具。
 - **歌曲列表（Custom Levels）**
   - 支持搜索、排序、筛选
   - 统一歌曲条目与右键菜单操作
+  - 视频搜索结果支持应用内直接播放（不跳转外部网页）
   - 支持歌曲与视频音频同步校准（偏移调整）
   - 对“已配置但缺少视频文件”的歌曲提供一键下载
   - 下载工具自动分流：
@@ -58,6 +59,9 @@ BeatCinema 是 `BeatSaberCinema` 插件的视频资源管理工具。
 - 设置 BeatSaber 安装目录
 - 在“歌曲列表”或“播放列表”发起下载
 - 在“下载管理”查看和控制任务
+- 手动验证清单（搜索代理）：
+  - 中文：`docs/manual-verification/search-proxy-checklist.md`
+  - English: `docs/manual-verification/search-proxy-checklist.en.md`
 
 **⚠️因bilibili平台限制，未登录情况下仅支持最高480p下载。**
 

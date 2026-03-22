@@ -830,6 +830,60 @@ abstract class AppLocalizations {
   /// **'Open link'**
   String get search_tooltip_open_link;
 
+  /// No description provided for @search_open_link_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open the webpage. Please try again.'**
+  String get search_open_link_failed;
+
+  /// No description provided for @search_tooltip_play.
+  ///
+  /// In en, this message translates to:
+  /// **'Play in app'**
+  String get search_tooltip_play;
+
+  /// No description provided for @search_tooltip_play_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing playback'**
+  String get search_tooltip_play_loading;
+
+  /// No description provided for @search_play_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to play video. Please try again.'**
+  String get search_play_failed;
+
+  /// No description provided for @search_play_fallback_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to download playback'**
+  String get search_play_fallback_title;
+
+  /// No description provided for @search_play_fallback_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote playback failed. Download first and play locally?'**
+  String get search_play_fallback_message;
+
+  /// No description provided for @search_play_fallback_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch and play'**
+  String get search_play_fallback_confirm;
+
+  /// No description provided for @search_play_fallback_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading video for local playback...'**
+  String get search_play_fallback_loading;
+
+  /// No description provided for @search_play_failed_with_reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to play video: {reason}'**
+  String search_play_failed_with_reason(String reason);
+
   /// No description provided for @sem_status_no_video.
   ///
   /// In en, this message translates to:

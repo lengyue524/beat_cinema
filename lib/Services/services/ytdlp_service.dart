@@ -7,6 +7,7 @@ import 'package:beat_cinema/Core/errors/app_error.dart';
 import 'package:beat_cinema/Services/repositories/video_repository.dart';
 import 'package:beat_cinema/Services/services/proxy_service.dart';
 import 'package:beat_cinema/Services/services/ytdlp_error_mapper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 class YtDlpService implements VideoRepository {
@@ -114,6 +115,91 @@ class YtDlpService implements VideoRepository {
       log.e('[YtDlpService] getVideoInfo exception url=$url error=$e', e, st);
       throw AppError.fromException(e, context: 'yt-dlp getVideoInfo');
     }
+  }
+
+  Future<String> getPlayableStreamUrl(String url) async {
+    var result = await _extractPlayableStreamUrl(
+      url: url,
+      extractorArgs: 'youtube:player_client=android,web',
+      formatSelector: 'best[ext=mp4]/best',
+    );
+
+    if (result == null || result.trim().isEmpty) {
+      result = await _extractPlayableStreamUrl(
+        url: url,
+        extractorArgs: 'youtube:player_client=tv,web;formats=missing_pot',
+        formatSelector: 'best',
+      );
+    }
+
+    if (result == null || result.trim().isEmpty) {
+      throw const AppError(
+        type: AppErrorType.network,
+        userMessageKey: 'error_ytdlp_video_unavailable',
+        retryable: false,
+      );
+    }
+    return result.trim();
+  }
+
+  Future<String?> _extractPlayableStreamUrl({
+    required String url,
+    required String extractorArgs,
+    required String formatSelector,
+  }) async {
+    final args = await buildPlayableUrlArgs(
+      url: url,
+      extractorArgs: extractorArgs,
+      formatSelector: formatSelector,
+      proxyMode: proxyMode,
+      customProxy: customProxy,
+    );
+    try {
+      final result = await Process.run(_dlpPath, args).timeout(_searchTimeout);
+      if (result.exitCode != 0) {
+        throw YtDlpErrorMapper.map(result.stderr as String, result.exitCode);
+      }
+      final lines = (result.stdout as String)
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList(growable: false);
+      return lines.isEmpty ? null : lines.first;
+    } on TimeoutException {
+      return null;
+    } on AppError {
+      rethrow;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @visibleForTesting
+  static Future<List<String>> buildPlayableUrlArgs({
+    required String url,
+    required String extractorArgs,
+    required String formatSelector,
+    required ProxyMode proxyMode,
+    required String customProxy,
+  }) async {
+    final args = <String>[
+      '-g',
+      '--no-playlist',
+      '--no-warnings',
+      '--extractor-args',
+      extractorArgs,
+      '-f',
+      formatSelector,
+    ];
+    final proxyUrl = await ProxyService.resolveProxyUrl(
+      mode: proxyMode,
+      customProxy: customProxy,
+    );
+    if (proxyUrl != null && proxyUrl.isNotEmpty) {
+      args.addAll(['--proxy', proxyUrl]);
+    }
+    args.add(url);
+    return args;
   }
 
   @override

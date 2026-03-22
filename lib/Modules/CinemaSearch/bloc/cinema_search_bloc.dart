@@ -3,7 +3,9 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Common/constants.dart';
+import 'package:beat_cinema/Services/services/proxy_service.dart';
 import 'package:beat_cinema/models/dlp_video_info/dlp_video_info.dart';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart';
@@ -54,6 +56,16 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
     if (appBloc.beatSaberPath == null) {
       return;
     }
+    final proxyUrl = await ProxyService.resolveProxyUrl(
+      mode: appBloc.proxyMode,
+      customProxy: appBloc.proxyServer,
+    );
+    log.i(
+      '[CinemaSearchBloc] search start query="$text" '
+      'platform=${appBloc.cinemaSearchPlatform.name} '
+      'proxyMode=${appBloc.proxyMode.name} '
+      'proxyApplied=${proxyUrl != null && proxyUrl.isNotEmpty}',
+    );
     ReceivePort receivePort = ReceivePort();
     List<DlpVideoInfo> videoInfos = List.empty(growable: true);
     String jsonStr = "";
@@ -97,6 +109,7 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
             count: count,
             beatSaberPath: appBloc.beatSaberPath!,
             cinemaSearchPlatform: appBloc.cinemaSearchPlatform,
+            proxyUrl: proxyUrl,
             sendport: receivePort.sendPort),
         debugName: text);
     await comp.future;
@@ -125,17 +138,14 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
   static void _searchCinemaWithYTDlp(CinameSearchParams params) async {
     String dlpPath =
         "${params.beatSaberPath}${Platform.pathSeparator}${Constants.libsDir}${Platform.pathSeparator}${Constants.ytDlpName}";
-    String searchStr = "";
-    switch (params.cinemaSearchPlatform) {
-      case CinemaSearchPlatform.youtube:
-        searchStr = "ytsearch${params.count}:${params.text}";
-        break;
-      case CinemaSearchPlatform.bilibili:
-        searchStr = "bilisearch${params.count}:${params.text}";
-        break;
-    }
+    final args = buildSearchArgs(
+      platform: params.cinemaSearchPlatform,
+      count: params.count,
+      text: params.text,
+      proxyUrl: params.proxyUrl,
+    );
     Completer comp = Completer();
-    Process pr = await Process.start(dlpPath, [searchStr, "-j"]);
+    Process pr = await Process.start(dlpPath, args);
     pr.stdout.listen((value) {
       params.sendport.send(value);
     }, onDone: () {
@@ -143,6 +153,31 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
       comp.complete();
     });
     await comp.future;
+  }
+
+  @visibleForTesting
+  static List<String> buildSearchArgs({
+    required CinemaSearchPlatform platform,
+    required int count,
+    required String text,
+    String? proxyUrl,
+  }) {
+    String searchStr = "";
+    switch (platform) {
+      case CinemaSearchPlatform.youtube:
+        searchStr = "ytsearch$count:$text";
+        break;
+      case CinemaSearchPlatform.bilibili:
+        searchStr = "bilisearch$count:$text";
+        break;
+    }
+    final args = <String>[];
+    final resolvedProxy = (proxyUrl ?? '').trim();
+    if (resolvedProxy.isNotEmpty) {
+      args.addAll(['--proxy', resolvedProxy]);
+    }
+    args.addAll([searchStr, '-j']);
+    return args;
   }
 
   @override
@@ -157,6 +192,7 @@ class CinameSearchParams {
   final int count;
   final String beatSaberPath;
   final CinemaSearchPlatform cinemaSearchPlatform;
+  final String? proxyUrl;
   final SendPort sendport;
 
   CinameSearchParams(
@@ -164,5 +200,6 @@ class CinameSearchParams {
       required this.count,
       required this.beatSaberPath,
       required this.cinemaSearchPlatform,
+      this.proxyUrl,
       required this.sendport});
 }

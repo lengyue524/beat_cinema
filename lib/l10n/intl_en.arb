@@ -156,6 +156,22 @@
     "search_tooltip_download": "Download",
     "search_tooltip_downloaded": "Downloaded",
     "search_tooltip_open_link": "Open link",
+    "search_open_link_failed": "Unable to open the webpage. Please try again.",
+    "search_tooltip_play": "Play in app",
+    "search_tooltip_play_loading": "Preparing playback",
+    "search_play_failed": "Failed to play video. Please try again.",
+    "search_play_fallback_title": "Switch to download playback",
+    "search_play_fallback_message": "Remote playback failed. Download first and play locally?",
+    "search_play_fallback_confirm": "Switch and play",
+    "search_play_fallback_loading": "Downloading video for local playback...",
+    "search_play_failed_with_reason": "Failed to play video: {reason}",
+    "@search_play_failed_with_reason": {
+        "placeholders": {
+            "reason": {
+                "type": "String"
+            }
+        }
+    },
     "sem_status_no_video": "No video",
     "sem_status_configured": "Video configured",
     "sem_status_configured_missing_file": "Video missing, download available",
