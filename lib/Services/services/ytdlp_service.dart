@@ -126,6 +126,10 @@ class YtDlpService implements VideoRepository {
   }) async {
     final resolvedTaskId =
         taskId ?? DateTime.now().millisecondsSinceEpoch.toString();
+    log.i(
+      '[YtDlpService] download start taskId=$resolvedTaskId '
+      'url=$url outputDir=$outputDir',
+    );
     final preferredFormatSelector = quality ??
         'bestvideo[height<=1080][vcodec*=avc1]+bestaudio[acodec*=mp4]/'
             'bestvideo[height<=1080]+bestaudio/'
@@ -328,6 +332,7 @@ class YtDlpService implements VideoRepository {
       customProxy: customProxy,
     );
     if (proxyUrl == null || proxyUrl.isEmpty) return;
+    log.i('[YtDlpService] apply proxy $proxyUrl');
     args.addAll(['--proxy', proxyUrl]);
   }
 

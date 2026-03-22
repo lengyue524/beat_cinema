@@ -1,4 +1,5 @@
 import 'package:beat_cinema/Common/constants.dart';
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
 import 'package:beat_cinema/Services/managers/download_manager.dart';
 import 'package:beat_cinema/Services/services/proxy_service.dart';
@@ -21,6 +22,10 @@ class AppBloc extends Bloc<AppEvent, AppState> {
 
   AppBloc() : super(AppInitial()) {
     on<AppLoadComplatedEvent>((event, emit) {
+      log.i(
+        '[AppBloc] load completed local=${event.local.name} '
+        'beatSaberPath=${event.beatSaberPath}',
+      );
       appLocal = event.local;
       beatSaberPath = event.beatSaberPath;
       cinemaSearchPlatform = event.cinemaSearchPlatform;
@@ -36,6 +41,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       ));
     });
     on<AppLocalUpdateEvent>((event, emit) {
+      log.i('[AppBloc] local updated ${event.local.name}');
       appLocal = event.local;
       saveAppLocal(appLocal);
       emit(AppLaunchComplated(
@@ -48,6 +54,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       ));
     });
     on<AppBeatSaverPathUpdateEvent>((event, emit) {
+      log.i('[AppBloc] Beat Saber path updated path=${event.beatSaberPath}');
       beatSaberPath = event.beatSaberPath;
       saveAppBeatSaberPath(beatSaberPath);
       _rebuildDownloadManager();
@@ -61,6 +68,8 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       ));
     });
     on<AppCinemaSearchPlatformUpdateEvent>((event, emit) {
+      log.i(
+          '[AppBloc] search platform updated ${event.cinemaSearchPlatform.name}');
       cinemaSearchPlatform = event.cinemaSearchPlatform;
       saveCinemaSearchPlatform(cinemaSearchPlatform);
       emit(AppLaunchComplated(
@@ -73,6 +82,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       ));
     });
     on<AppCinemaVideoQualityUpdateEvent>((event, emit) {
+      log.i('[AppBloc] video quality updated ${event.cinemaVideoQuality.name}');
       cinemaVideoQuality = event.cinemaVideoQuality;
       saveCinemaVideoQuality(cinemaVideoQuality);
       emit(AppLaunchComplated(
@@ -85,6 +95,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       ));
     });
     on<AppProxyModeUpdateEvent>((event, emit) {
+      log.i('[AppBloc] proxy mode updated ${event.proxyMode.name}');
       proxyMode = event.proxyMode;
       saveProxyMode(proxyMode);
       _rebuildDownloadManager();
@@ -98,6 +109,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       ));
     });
     on<AppProxyServerUpdateEvent>((event, emit) {
+      log.i('[AppBloc] proxy server updated');
       proxyServer = event.proxyServer.trim();
       saveProxyServer(proxyServer);
       _rebuildDownloadManager();
@@ -113,6 +125,7 @@ class AppBloc extends Bloc<AppEvent, AppState> {
   }
 
   static Future<void> loadAppConfig(AppBloc bloc) async {
+    log.i('[AppBloc] loading app config from shared preferences');
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? local = prefs.getString(Constants.sharedPreferencesAppLocal);
     final String? beatSaberPath =
@@ -163,6 +176,10 @@ class AppBloc extends Bloc<AppEvent, AppState> {
 
     bloc.proxyMode = proxyMode;
     bloc.proxyServer = (proxyServer ?? '').trim();
+    log.i(
+      '[AppBloc] config loaded local=${appLocal.name} '
+      'path=$beatSaberPath proxyMode=${proxyMode.name}',
+    );
 
     bloc.add(AppLoadComplatedEvent(
         appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
@@ -207,8 +224,10 @@ class AppBloc extends Bloc<AppEvent, AppState> {
   }
 
   void _rebuildDownloadManager() {
+    log.i('[AppBloc] rebuild download manager path=$beatSaberPath');
     downloadManager?.dispose();
     if (beatSaberPath == null || beatSaberPath!.trim().isEmpty) {
+      log.w('[AppBloc] download manager disabled because path is empty');
       downloadManager = null;
       return;
     }

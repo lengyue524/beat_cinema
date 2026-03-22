@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Services/repositories/video_repository.dart';
 import 'package:beat_cinema/Services/services/ytdlp_service.dart';
 
@@ -15,7 +16,8 @@ class DownloadTask {
   String? errorMessage;
   String? outputPath;
   final Future<DownloadResult> Function(
-      DownloadTask task, void Function(double progress) onProgress)? customRunner;
+          DownloadTask task, void Function(double progress) onProgress)?
+      customRunner;
   final Future<void> Function(DownloadTask task)? customCancel;
   final Map<String, String> metadata;
 
@@ -67,6 +69,10 @@ class DownloadManager {
     );
     _tasks.add(task);
     _queue.add(task);
+    log.i(
+      '[DownloadManager] enqueue taskId=$taskId title=$title '
+      'url=$url queueSize=${_queue.length}',
+    );
     _notify();
     _processQueue();
     return taskId;
@@ -92,6 +98,10 @@ class DownloadManager {
     );
     _tasks.add(task);
     _queue.add(task);
+    log.i(
+      '[DownloadManager] enqueue custom taskId=$taskId title=$title '
+      'queueSize=${_queue.length}',
+    );
     _notify();
     _processQueue();
     return taskId;
@@ -105,6 +115,7 @@ class DownloadManager {
     task.progress = 0;
     task.errorMessage = null;
     _queue.add(task);
+    log.i('[DownloadManager] retry taskId=$taskId');
     _notify();
     _processQueue();
   }
@@ -121,11 +132,13 @@ class DownloadManager {
       }
     }
     task.status = DownloadStatus.cancelled;
+    log.i('[DownloadManager] cancel taskId=$taskId');
     _queue.removeWhere((t) => t.taskId == taskId);
     _notify();
   }
 
   Future<void> cancelAll() async {
+    log.i('[DownloadManager] cancel all tasks count=${_tasks.length}');
     for (final task in _tasks) {
       if (task.status == DownloadStatus.downloading) {
         if (task.customCancel != null) {
@@ -150,6 +163,10 @@ class DownloadManager {
       if (task.status != DownloadStatus.pending) continue;
       _activeCount++;
       task.status = DownloadStatus.downloading;
+      log.i(
+        '[DownloadManager] start taskId=${task.taskId} '
+        'active=$_activeCount remainingQueue=${_queue.length}',
+      );
       _notify();
       _runTask(task);
     }
@@ -178,9 +195,13 @@ class DownloadManager {
       task.status = result.status;
       task.outputPath = result.outputPath;
       task.errorMessage = result.errorMessage;
+      log.i(
+        '[DownloadManager] finish taskId=${task.taskId} status=${task.status.name}',
+      );
     } catch (e) {
       task.status = DownloadStatus.failed;
       task.errorMessage = e.toString();
+      log.e('[DownloadManager] exception taskId=${task.taskId} error=$e', e);
     } finally {
       _activeCount--;
       _notify();

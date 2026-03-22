@@ -23,6 +23,10 @@ class BeatSaverDownloadService {
     void Function(double progress)? onProgress,
   }) async {
     final lookupToken = hash.trim().toLowerCase();
+    log.i(
+      '[BeatSaverDownload] start taskId=$taskId hash=$lookupToken '
+      'titleHint=${titleHint ?? '-'}',
+    );
     if (lookupToken.isEmpty) {
       return DownloadResult(
         taskId: taskId,
@@ -37,6 +41,10 @@ class BeatSaverDownloadService {
       onProgress?.call(0.05);
       final mapResponse = await _getWithRetry(mapApi);
       if (mapResponse.statusCode != 200) {
+        log.w(
+          '[BeatSaverDownload] lookup failed taskId=$taskId '
+          'status=${mapResponse.statusCode} token=$lookupToken',
+        );
         return DownloadResult(
           taskId: taskId,
           status: DownloadStatus.failed,
@@ -50,6 +58,8 @@ class BeatSaverDownloadService {
               ?.cast<Map<String, dynamic>>() ??
           const [];
       if (versions.isEmpty) {
+        log.w(
+            '[BeatSaverDownload] no version taskId=$taskId token=$lookupToken');
         return DownloadResult(
           taskId: taskId,
           status: DownloadStatus.failed,
@@ -103,6 +113,8 @@ class BeatSaverDownloadService {
       final outputDir = p.join(customLevelsRoot, folderName);
       final outputDirectory = Directory(outputDir);
       if (await outputDirectory.exists()) {
+        log.i(
+            '[BeatSaverDownload] already exists taskId=$taskId path=$outputDir');
         return DownloadResult(
           taskId: taskId,
           status: DownloadStatus.completed,
@@ -175,6 +187,8 @@ class BeatSaverDownloadService {
         outputPath: outputDir,
       );
     } catch (e) {
+      log.e(
+          '[BeatSaverDownload] exception taskId=$taskId hash=$lookupToken', e);
       return DownloadResult(
         taskId: taskId,
         status: DownloadStatus.failed,

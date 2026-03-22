@@ -38,6 +38,7 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
 
   Future<void> _onReload(
       ReloadCustomLevelsEvent event, Emitter<CustomLevelsState> emit) async {
+    log.i('[CustomLevels] reload start path=${event.beatSaberPath}');
     final cached = _cacheService.getAll();
     final hasCache = cached.isNotEmpty;
 
@@ -179,9 +180,11 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
 
   Future<void> _onLoadCached(LoadCachedCustomLevelsEvent event,
       Emitter<CustomLevelsState> emit) async {
+    log.i('[CustomLevels] load cache start');
     await _cacheService.init();
     final cached = _cacheService.getAll();
     if (cached.isNotEmpty) {
+      log.i('[CustomLevels] cache loaded count=${cached.length}');
       _allLevels = cached;
       emit(_buildLoadedState());
     }

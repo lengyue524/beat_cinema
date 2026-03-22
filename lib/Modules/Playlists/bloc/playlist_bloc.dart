@@ -79,6 +79,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
 
   Future<void> _onLoad(
       LoadPlaylistsEvent event, Emitter<PlaylistState> emit) async {
+    log.i('[Playlist] load start beatSaberPath=${event.beatSaberPath}');
     emit(PlaylistLoading(stage: 'parse-playlists'));
     try {
       _currentBeatSaberPath = event.beatSaberPath;
@@ -257,8 +258,12 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
 
       _selectedIndex = null;
       _filterUnconfigured = false;
+      log.i(
+        '[Playlist] load completed playlists=${_playlists.length} levels=${_levels.length}',
+      );
       emit(_buildLoadedState());
     } catch (e) {
+      log.e('[Playlist] load failed error=$e', e);
       emit(PlaylistError(e.toString()));
     }
   }
@@ -269,6 +274,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
   ) async {
     final beatSaberPath = _currentBeatSaberPath;
     if (beatSaberPath == null) return;
+    log.i('[Playlist] rebuild hash index start');
     try {
       final totalPlaylists = _rawPlaylists.length;
       emit(PlaylistLoading(
@@ -317,6 +323,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
       );
       _selectedIndex = null;
       _rebuildNoticeSerial++;
+      log.i('[Playlist] rebuild hash index completed');
       emit(_buildLoadedState(
         rebuildNotice: PlaylistRebuildNotice(
           success: true,

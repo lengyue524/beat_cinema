@@ -15,6 +15,7 @@ Supported platform: Windows only.
 - **Songs page (Custom Levels)**
   - Search, sort, and filter songs
   - Unified song list rendering with context menu actions
+  - Song/video audio sync calibration support (offset adjustment)
   - Configured-missing-video status with one-click re-download
   - Download tool routing:
     - direct HTTP download for direct video file URLs (`.mp4`, `.mkv`, `.webm`, etc.)
@@ -42,6 +43,17 @@ Supported platform: Windows only.
   - **Basic Settings**: game directory, language, video resolution, search engine
   - **Proxy Settings**: proxy mode, proxy address, current mode description
 - Key actions (changing game directory, saving proxy) provide immediate feedback.
+
+## Logging
+
+- Runtime logs are persisted under the app data `logs` directory.
+- Daily log file name format: `app-YYYY-MM-DD.log`.
+- On startup, historical logs (including yesterday) are archived to:
+  - `app-YYYY-MM-DD.zip`
+  - and the corresponding `.log` file is removed after archive succeeds.
+- Total log storage is automatically limited to `10MB`:
+  - oldest files are cleaned up first when exceeding the limit;
+  - today's log is protected whenever possible, and only trimmed as a last resort.
 
 ## Usage
 

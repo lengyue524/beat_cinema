@@ -1,6 +1,7 @@
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/App/Route/app_route.dart';
 import 'package:beat_cinema/App/theme/app_theme.dart';
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Services/services/app_lifecycle_service.dart';
 import 'package:beat_cinema/Services/services/player_service.dart';
 import 'package:beat_cinema/Services/services/window_service.dart';
@@ -8,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:beat_cinema/l10n/app_localizations.dart';
-import 'package:logging/logging.dart';
 import 'package:media_kit/media_kit.dart';
 
 final windowService = WindowService();
@@ -19,10 +19,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
 
-  Logger.root.level = Level.ALL;
-  Logger.root.onRecord.listen((record) {
-    debugPrint('${record.level.name}: ${record.time}: ${record.message}');
-  });
+  await initAppLogging();
 
   await windowService.init();
   lifecycleService = AppLifecycleService(windowService)
