@@ -1,6 +1,7 @@
 import 'package:beat_cinema/Common/constants.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
 import 'package:beat_cinema/Services/managers/download_manager.dart';
+import 'package:beat_cinema/Services/services/proxy_service.dart';
 import 'package:beat_cinema/Services/services/ytdlp_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta/meta.dart';
@@ -14,6 +15,8 @@ class AppBloc extends Bloc<AppEvent, AppState> {
   String? beatSaberPath;
   CinemaSearchPlatform cinemaSearchPlatform = CinemaSearchPlatform.youtube;
   CinemaVideoQuality cinemaVideoQuality = CinemaVideoQuality.q720p;
+  ProxyMode proxyMode = ProxyMode.system;
+  String proxyServer = '';
   DownloadManager? downloadManager;
 
   AppBloc() : super(AppInitial()) {
@@ -24,32 +27,88 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       cinemaVideoQuality = event.cinemaVideoQuality;
       _rebuildDownloadManager();
       emit(AppLaunchComplated(
-          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
+        appLocal,
+        beatSaberPath,
+        cinemaSearchPlatform,
+        cinemaVideoQuality,
+        proxyMode,
+        proxyServer,
+      ));
     });
     on<AppLocalUpdateEvent>((event, emit) {
       appLocal = event.local;
       saveAppLocal(appLocal);
       emit(AppLaunchComplated(
-          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
+        appLocal,
+        beatSaberPath,
+        cinemaSearchPlatform,
+        cinemaVideoQuality,
+        proxyMode,
+        proxyServer,
+      ));
     });
     on<AppBeatSaverPathUpdateEvent>((event, emit) {
       beatSaberPath = event.beatSaberPath;
       saveAppBeatSaberPath(beatSaberPath);
       _rebuildDownloadManager();
       emit(AppLaunchComplated(
-          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
+        appLocal,
+        beatSaberPath,
+        cinemaSearchPlatform,
+        cinemaVideoQuality,
+        proxyMode,
+        proxyServer,
+      ));
     });
     on<AppCinemaSearchPlatformUpdateEvent>((event, emit) {
       cinemaSearchPlatform = event.cinemaSearchPlatform;
       saveCinemaSearchPlatform(cinemaSearchPlatform);
       emit(AppLaunchComplated(
-          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
+        appLocal,
+        beatSaberPath,
+        cinemaSearchPlatform,
+        cinemaVideoQuality,
+        proxyMode,
+        proxyServer,
+      ));
     });
     on<AppCinemaVideoQualityUpdateEvent>((event, emit) {
       cinemaVideoQuality = event.cinemaVideoQuality;
       saveCinemaVideoQuality(cinemaVideoQuality);
       emit(AppLaunchComplated(
-          appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
+        appLocal,
+        beatSaberPath,
+        cinemaSearchPlatform,
+        cinemaVideoQuality,
+        proxyMode,
+        proxyServer,
+      ));
+    });
+    on<AppProxyModeUpdateEvent>((event, emit) {
+      proxyMode = event.proxyMode;
+      saveProxyMode(proxyMode);
+      _rebuildDownloadManager();
+      emit(AppLaunchComplated(
+        appLocal,
+        beatSaberPath,
+        cinemaSearchPlatform,
+        cinemaVideoQuality,
+        proxyMode,
+        proxyServer,
+      ));
+    });
+    on<AppProxyServerUpdateEvent>((event, emit) {
+      proxyServer = event.proxyServer.trim();
+      saveProxyServer(proxyServer);
+      _rebuildDownloadManager();
+      emit(AppLaunchComplated(
+        appLocal,
+        beatSaberPath,
+        cinemaSearchPlatform,
+        cinemaVideoQuality,
+        proxyMode,
+        proxyServer,
+      ));
     });
   }
 
@@ -62,10 +121,15 @@ class AppBloc extends Bloc<AppEvent, AppState> {
         prefs.getString(Constants.sharedPreferencesCinemaSearchPlatform);
     final String? cinemaVideoQualityStr =
         prefs.getString(Constants.sharedPreferencesCinemaVideoQuality);
+    final String? proxyModeStr =
+        prefs.getString(Constants.sharedPreferencesProxyMode);
+    final String? proxyServer =
+        prefs.getString(Constants.sharedPreferencesProxyServer);
 
     AppLocal appLocal;
     CinemaSearchPlatform cinemaSearchPlatform;
     CinemaVideoQuality cinemaVideoQuality;
+    ProxyMode proxyMode;
 
     try {
       appLocal = local != null ? AppLocal.values.byName(local) : AppLocal.en;
@@ -88,6 +152,17 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     } catch (_) {
       cinemaVideoQuality = CinemaVideoQuality.q720p;
     }
+
+    try {
+      proxyMode = proxyModeStr != null
+          ? ProxyMode.values.byName(proxyModeStr)
+          : ProxyMode.system;
+    } catch (_) {
+      proxyMode = ProxyMode.system;
+    }
+
+    bloc.proxyMode = proxyMode;
+    bloc.proxyServer = (proxyServer ?? '').trim();
 
     bloc.add(AppLoadComplatedEvent(
         appLocal, beatSaberPath, cinemaSearchPlatform, cinemaVideoQuality));
@@ -121,6 +196,16 @@ class AppBloc extends Bloc<AppEvent, AppState> {
         Constants.sharedPreferencesCinemaVideoQuality, cinemaVideoQuality.name);
   }
 
+  void saveProxyMode(ProxyMode mode) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(Constants.sharedPreferencesProxyMode, mode.name);
+  }
+
+  void saveProxyServer(String server) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(Constants.sharedPreferencesProxyServer, server);
+  }
+
   void _rebuildDownloadManager() {
     downloadManager?.dispose();
     if (beatSaberPath == null || beatSaberPath!.trim().isEmpty) {
@@ -128,7 +213,11 @@ class AppBloc extends Bloc<AppEvent, AppState> {
       return;
     }
     downloadManager = DownloadManager(
-      YtDlpService(beatSaberPath: beatSaberPath!),
+      YtDlpService(
+        beatSaberPath: beatSaberPath!,
+        proxyMode: proxyMode,
+        customProxy: proxyServer,
+      ),
     );
   }
 }

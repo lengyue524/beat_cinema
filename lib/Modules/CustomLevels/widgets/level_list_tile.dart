@@ -23,6 +23,7 @@ class LevelListTile extends StatelessWidget {
     this.onDownloadConfiguredVideo,
     this.configuredVideoDownloadTooltip,
     this.configuredVideoDownloading = false,
+    this.videoStatusOverride,
   });
 
   final LevelMetadata metadata;
@@ -36,9 +37,11 @@ class LevelListTile extends StatelessWidget {
   final VoidCallback? onDownloadConfiguredVideo;
   final String? configuredVideoDownloadTooltip;
   final bool configuredVideoDownloading;
+  final VideoConfigStatus? videoStatusOverride;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveVideoStatus = videoStatusOverride ?? metadata.videoStatus;
     return ContextMenuRegion(
       menuItems: contextMenuItems,
       child: Semantics(
@@ -83,41 +86,38 @@ class LevelListTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            metadata.songAuthorName,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  metadata.levelAuthorName,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              DifficultyBadge(
+                                  difficulties: metadata.difficulties),
+                              const SizedBox(width: AppSpacing.xs),
+                              _BpmWithIcon(bpm: metadata.bpm),
+                            ],
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xs),
                     _VideoStatusIcon(
-                      status: metadata.videoStatus,
+                      status: effectiveVideoStatus,
                       progress: metadata.downloadProgress,
                       onTap: onVideoPreview,
                       onDownloadConfiguredVideo: onDownloadConfiguredVideo,
                       configuredVideoDownloadTooltip:
                           configuredVideoDownloadTooltip,
                       configuredVideoDownloading: configuredVideoDownloading,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    DifficultyBadge(difficulties: metadata.difficulties),
-                    const SizedBox(width: AppSpacing.xs),
-                    SizedBox(
-                      width: 40,
-                      child: Text(
-                        metadata.bpm > 0 ? metadata.bpm.toStringAsFixed(0) : '',
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -220,6 +220,37 @@ class _VideoStatusIconState extends State<_VideoStatusIcon> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BpmWithIcon extends StatelessWidget {
+  const _BpmWithIcon({required this.bpm});
+
+  final double bpm;
+
+  @override
+  Widget build(BuildContext context) {
+    if (bpm <= 0) {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.av_timer,
+          size: 14,
+          color: AppColors.textSecondary,
+        ),
+        const SizedBox(width: 2),
+        Text(
+          bpm.toStringAsFixed(0),
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+          ),
+        ),
+      ],
     );
   }
 }

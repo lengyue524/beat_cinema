@@ -133,7 +133,6 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
       case CinemaSearchPlatform.bilibili:
         searchStr = "bilisearch${params.count}:${params.text}";
         break;
-      default:
     }
     Completer comp = Completer();
     Process pr = await Process.start(dlpPath, [searchStr, "-j"]);

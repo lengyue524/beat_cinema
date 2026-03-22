@@ -10,7 +10,18 @@ class ReloadCustomLevelsEvent extends CustomLevelsEvent {
 
 class LoadCachedCustomLevelsEvent extends CustomLevelsEvent {}
 
-class FilterCustomLevelsEvent extends CustomLevelsEvent {
-  FilterCustomLevelsEvent(this.seatchText);
-  final String? seatchText;
+class SearchQueryChanged extends CustomLevelsEvent {
+  SearchQueryChanged(this.query);
+  final String query;
+}
+
+class FilterChanged extends CustomLevelsEvent {
+  FilterChanged(this.criteria);
+  final FilterCriteria criteria;
+}
+
+class SortChanged extends CustomLevelsEvent {
+  SortChanged(this.field, this.direction);
+  final SortField field;
+  final SortDirection direction;
 }

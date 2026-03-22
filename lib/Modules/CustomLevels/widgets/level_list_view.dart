@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/App/theme/app_colors.dart';
 import 'package:beat_cinema/Common/constants.dart';
+import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/widgets/level_list_tile.dart';
 import 'package:beat_cinema/Modules/CustomLevels/widgets/mini_audio_player_bar.dart';
@@ -12,6 +13,7 @@ import 'package:beat_cinema/Modules/Panel/cubit/panel_cubit.dart';
 import 'package:beat_cinema/Modules/Panel/video_preview_dialog.dart';
 import 'package:beat_cinema/Services/managers/download_manager.dart';
 import 'package:beat_cinema/Services/repositories/video_repository.dart';
+import 'package:beat_cinema/Services/services/proxy_service.dart';
 import 'package:beat_cinema/main.dart';
 import 'package:beat_cinema/models/cinema_config/cinema_config.dart';
 import 'package:beat_cinema/models/level_metadata.dart';
@@ -89,6 +91,7 @@ class LevelListView extends StatefulWidget {
     super.key,
     required this.items,
     this.placeholderBuilder,
+    this.autoReloadAfterConfigDownload = true,
   });
 
   /// Ordered list of items. Each item is either a level or a placeholder.
@@ -96,11 +99,13 @@ class LevelListView extends StatefulWidget {
 
   /// Builder for non-level placeholder items.
   final Widget Function(BuildContext context, Object? data)? placeholderBuilder;
+  final bool autoReloadAfterConfigDownload;
 
   /// Convenience constructor that wraps a plain [LevelMetadata] list.
   LevelListView.fromLevels({
     super.key,
     required List<LevelMetadata> levels,
+    this.autoReloadAfterConfigDownload = true,
   })  : items = levels.map((m) => LevelListItem.level(m)).toList(),
         placeholderBuilder = null;
 
@@ -129,6 +134,10 @@ class _LevelListViewState extends State<LevelListView> {
   final Map<String, _PendingConfigDownload> _pendingConfigDownloads = {};
   final Map<String, _DirectDownloadSession> _directDownloadSessions = {};
   final Set<String> _pendingConfigDownloadKeys = <String>{};
+  final Set<String> _locallyRecoveredVideoLevelPaths = <String>{};
+  bool _processingDownloadTasks = false;
+  List<DownloadTask>? _queuedDownloadTasks;
+  Timer? _reloadDebounceTimer;
 
   @override
   void didChangeDependencies() {
@@ -139,6 +148,7 @@ class _LevelListViewState extends State<LevelListView> {
   @override
   void dispose() {
     _downloadTaskSubscription?.cancel();
+    _reloadDebounceTimer?.cancel();
     _disposePreviewPlayer();
     super.dispose();
   }
@@ -282,20 +292,55 @@ class _LevelListViewState extends State<LevelListView> {
   }
 
   Future<void> _onDownloadTasks(List<DownloadTask> tasks) async {
+    if (_processingDownloadTasks) {
+      _queuedDownloadTasks = tasks;
+      return;
+    }
+    _processingDownloadTasks = true;
+    var currentTasks = tasks;
+    while (true) {
+      await _consumeDownloadTasks(currentTasks);
+      final queued = _queuedDownloadTasks;
+      if (queued == null) break;
+      _queuedDownloadTasks = null;
+      currentTasks = queued;
+    }
+    _processingDownloadTasks = false;
+  }
+
+  Future<void> _consumeDownloadTasks(List<DownloadTask> tasks) async {
     if (_pendingConfigDownloads.isEmpty) return;
     final byId = {for (final task in tasks) task.taskId: task};
     final finishedIds = <String>[];
-    for (final entry in _pendingConfigDownloads.entries) {
+    var shouldReload = false;
+    final pendingSnapshot =
+        _pendingConfigDownloads.entries.toList(growable: false);
+    for (final entry in pendingSnapshot) {
       final task = byId[entry.key];
       if (task == null) continue;
       if (task.status == DownloadStatus.completed) {
         await _handleConfigDownloadSuccess(entry.value);
+        _locallyRecoveredVideoLevelPaths.add(entry.value.levelPath);
+        shouldReload = true;
         finishedIds.add(entry.key);
-      } else if (task.status == DownloadStatus.failed ||
-          task.status == DownloadStatus.cancelled) {
+      } else if (task.status == DownloadStatus.failed) {
         final l10n = AppLocalizations.of(context);
+        final reason = _friendlyDownloadFailureReason(task.errorMessage);
+        log.w(
+          '[ConfigDownload] task failed '
+          'taskId=${task.taskId} song=${entry.value.songName} '
+          'url=${entry.value.videoUrl} err=${task.errorMessage}',
+        );
         _showSnackBar(
-            '${l10n?.snack_video_download_failed ?? '配置视频下载失败'}: ${entry.value.songName}');
+            '${l10n?.snack_video_download_failed ?? '配置视频下载失败'}: ${entry.value.songName}（$reason）');
+        finishedIds.add(entry.key);
+      } else if (task.status == DownloadStatus.cancelled) {
+        log.i(
+          '[ConfigDownload] task cancelled '
+          'taskId=${task.taskId} song=${entry.value.songName} '
+          'url=${entry.value.videoUrl}',
+        );
+        _showSnackBar('已取消下载: ${entry.value.songName}');
         finishedIds.add(entry.key);
       }
     }
@@ -311,6 +356,9 @@ class _LevelListViewState extends State<LevelListView> {
     if (changed && mounted) {
       setState(() {});
     }
+    if (shouldReload && widget.autoReloadAfterConfigDownload) {
+      _scheduleReloadCustomLevels();
+    }
   }
 
   Future<void> _handleConfigDownloadSuccess(
@@ -321,9 +369,12 @@ class _LevelListViewState extends State<LevelListView> {
       pending.existingVideoFiles,
     );
     if (resolvedName == null || resolvedName.isEmpty) {
+      log.w(
+        '[ConfigDownload] completed but video file unresolved '
+        'song=${pending.songName} levelPath=${pending.levelPath}',
+      );
       _showSnackBar(
           '${l10n?.snack_video_file_unresolved ?? '下载完成，但未识别到视频文件'}: ${pending.songName}');
-      await _reloadCustomLevels();
       return;
     }
     await _updateCinemaConfigVideoFile(
@@ -333,7 +384,6 @@ class _LevelListViewState extends State<LevelListView> {
     );
     _showSnackBar(
         '${l10n?.snack_video_file_recovered ?? '已补齐视频文件'}: ${pending.songName}');
-    await _reloadCustomLevels();
   }
 
   String? _resolveDownloadedVideoFileName(
@@ -370,7 +420,13 @@ class _LevelListViewState extends State<LevelListView> {
       if (configFile.existsSync()) {
         config = CinemaConfig.fromJson(await configFile.readAsString());
       }
-    } catch (_) {}
+    } catch (e, st) {
+      log.w(
+        '[ConfigDownload] read cinema config failed levelPath=$levelPath error=$e',
+        e,
+        st,
+      );
+    }
     config.videoUrl =
         (config.videoUrl ?? '').trim().isEmpty ? videoUrl : config.videoUrl;
     config.videoFile = fileName;
@@ -392,6 +448,13 @@ class _LevelListViewState extends State<LevelListView> {
     }
   }
 
+  void _scheduleReloadCustomLevels() {
+    _reloadDebounceTimer?.cancel();
+    _reloadDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      unawaited(_reloadCustomLevels());
+    });
+  }
+
   void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -399,8 +462,9 @@ class _LevelListViewState extends State<LevelListView> {
   }
 
   void _downloadFromConfiguredUrl(LevelMetadata meta) {
+    _bindDownloadTaskStream();
     final l10n = AppLocalizations.of(context);
-    final url = (meta.cinemaConfig?.videoUrl ?? '').trim();
+    final url = _resolveConfiguredVideoUrl(meta.cinemaConfig);
     if (url.isEmpty) {
       _showSnackBar(l10n?.snack_config_video_url_missing ?? '当前配置没有可用的视频链接');
       return;
@@ -445,6 +509,10 @@ class _LevelListViewState extends State<LevelListView> {
     if (mounted) {
       setState(() {});
     }
+    log.i(
+      '[ConfigDownload] task enqueued '
+      'taskId=$taskId tool=${tool.name} song=${meta.songName} url=$url',
+    );
     _showSnackBar(
         '${l10n?.snack_video_download_enqueued ?? '已加入下载队列'}: ${meta.songName}');
   }
@@ -456,7 +524,7 @@ class _LevelListViewState extends State<LevelListView> {
   List<ContextMenuItem> _buildContextMenu(LevelMetadata meta) {
     final l10n = AppLocalizations.of(context);
     final canRedownloadFromConfig =
-        (meta.cinemaConfig?.videoUrl ?? '').trim().isNotEmpty &&
+        _hasConfiguredVideoSource(meta.cinemaConfig) &&
             meta.videoStatus != VideoConfigStatus.configured;
     return [
       ContextMenuItem(
@@ -554,16 +622,18 @@ class _LevelListViewState extends State<LevelListView> {
 
   Widget _buildLevelTile(LevelMetadata meta) {
     final l10n = AppLocalizations.of(context);
+    final effectiveVideoStatus = _effectiveVideoStatus(meta);
     return LevelListTile(
       metadata: meta,
+      videoStatusOverride: effectiveVideoStatus,
       isSelected: meta.levelPath == _selectedLevelPath,
       isPlayingAudio: _playingLevelPath == meta.levelPath && _previewPlaying,
       onPlayAudio: () => _toggleAudioPreview(meta),
-      onVideoPreview: meta.videoStatus == VideoConfigStatus.configured
+      onVideoPreview: effectiveVideoStatus == VideoConfigStatus.configured
           ? () => _showVideoPreview(meta)
           : null,
       onDownloadConfiguredVideo:
-          meta.videoStatus == VideoConfigStatus.configuredMissingFile
+          effectiveVideoStatus == VideoConfigStatus.configuredMissingFile
               ? () => _downloadFromConfiguredUrl(meta)
               : null,
       configuredVideoDownloadTooltip:
@@ -588,10 +658,36 @@ class _LevelListViewState extends State<LevelListView> {
   }
 
   bool _isConfiguredVideoDownloading(LevelMetadata meta) {
-    final videoUrl = (meta.cinemaConfig?.videoUrl ?? '').trim();
+    final videoUrl = _resolveConfiguredVideoUrl(meta.cinemaConfig);
     if (videoUrl.isEmpty) return false;
     final downloadKey = _configDownloadKey(meta.levelPath, videoUrl);
     return _pendingConfigDownloadKeys.contains(downloadKey);
+  }
+
+  VideoConfigStatus _effectiveVideoStatus(LevelMetadata meta) {
+    if (_isConfiguredVideoDownloading(meta)) {
+      return VideoConfigStatus.downloading;
+    }
+    if (_locallyRecoveredVideoLevelPaths.contains(meta.levelPath)) {
+      return VideoConfigStatus.configured;
+    }
+    return meta.videoStatus;
+  }
+
+  bool _hasConfiguredVideoSource(CinemaConfig? config) {
+    return _resolveConfiguredVideoUrl(config).isNotEmpty;
+  }
+
+  String _resolveConfiguredVideoUrl(CinemaConfig? config) {
+    if (config == null) return '';
+    final rawUrl = (config.videoUrl ?? '').trim();
+    if (rawUrl.isNotEmpty) return rawUrl;
+    final rawId = (config.videoId ?? '').trim();
+    if (rawId.isEmpty) return '';
+    if (rawId.startsWith('http://') || rawId.startsWith('https://')) {
+      return rawId;
+    }
+    return 'https://www.youtube.com/watch?v=$rawId';
   }
 
   _ConfiguredVideoDownloadTool _selectDownloadTool(String videoUrl) {
@@ -659,9 +755,17 @@ class _LevelListViewState extends State<LevelListView> {
     final tempFile = File(tempPath);
     try {
       session.client = HttpClient();
+      final proxy = await _resolveActiveProxyUrl();
+      if (proxy != null && proxy.isNotEmpty) {
+        session.client!.findProxy = (_) => 'PROXY ${_proxyHostPort(proxy)}';
+      }
       final request = await session.client!.getUrl(url);
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        log.w(
+          '[ConfigDownload] direct http status invalid '
+          'taskId=${task.taskId} url=$url status=${response.statusCode}',
+        );
         return DownloadResult(
           taskId: task.taskId,
           status: DownloadStatus.failed,
@@ -696,6 +800,10 @@ class _LevelListViewState extends State<LevelListView> {
         await outFile.delete();
       }
       await tempFile.rename(outputPath);
+      log.i(
+        '[ConfigDownload] direct http completed '
+        'taskId=${task.taskId} output=$outputPath',
+      );
       return DownloadResult(
         taskId: task.taskId,
         status: DownloadStatus.completed,
@@ -703,11 +811,19 @@ class _LevelListViewState extends State<LevelListView> {
       );
     } catch (e) {
       if (session.cancelled) {
+        log.i(
+          '[ConfigDownload] direct http cancelled in catch '
+          'taskId=${task.taskId} url=$url',
+        );
         return DownloadResult(
           taskId: task.taskId,
           status: DownloadStatus.cancelled,
         );
       }
+      log.e(
+        '[ConfigDownload] direct http exception '
+        'taskId=${task.taskId} url=$url error=$e',
+      );
       return DownloadResult(
         taskId: task.taskId,
         status: DownloadStatus.failed,
@@ -749,6 +865,67 @@ class _LevelListViewState extends State<LevelListView> {
 
   static String _configDownloadKey(String levelPath, String videoUrl) {
     return '${levelPath.trim().toLowerCase()}|${videoUrl.trim().toLowerCase()}';
+  }
+
+  String _friendlyDownloadFailureReason(String? rawError) {
+    final text = (rawError ?? '').trim();
+    if (text.isEmpty) {
+      return '未知错误，请检查网络与代理设置';
+    }
+    final lower = text.toLowerCase();
+    if (lower.contains('proxy') &&
+        (lower.contains('refused') ||
+            lower.contains('failed') ||
+            lower.contains('timed out'))) {
+      return '代理连接失败，请检查“设置 > 代理模式/代理地址”';
+    }
+    if (lower.contains('timed out') || lower.contains('timeout')) {
+      return '连接超时，请检查网络或更换代理';
+    }
+    if (lower.contains('name or service not known') ||
+        lower.contains('failed to resolve') ||
+        lower.contains('temporary failure in name resolution')) {
+      return 'DNS 解析失败，请检查网络与代理';
+    }
+    if (lower.contains('network is unreachable') ||
+        lower.contains('no route to host') ||
+        lower.contains('connection refused')) {
+      return '网络不可达，请检查网络与代理';
+    }
+    if (lower.contains('http error 403') ||
+        lower.contains('http error 429') ||
+        lower.contains('video unavailable') ||
+        lower.contains('this video is unavailable')) {
+      return 'YouTube 访问受限或视频不可用，请尝试代理或稍后重试';
+    }
+    if (lower.contains('http error 416') ||
+        lower.contains('requested range not satisfiable')) {
+      return 'YouTube 分片下载失败（416），已自动重试兼容模式；请重试或更换代理';
+    }
+    if (lower.contains('po token') || lower.contains('missing_pot')) {
+      return 'YouTube 新策略限制（PO Token），已尝试兼容模式；建议更新 yt-dlp';
+    }
+    if (lower.contains('http 407')) {
+      return '代理需要认证，请使用带认证信息的代理地址';
+    }
+    if (text.length > 80) {
+      return '${text.substring(0, 80)}...';
+    }
+    return text;
+  }
+
+  Future<String?> _resolveActiveProxyUrl() {
+    final app = context.read<AppBloc>();
+    return ProxyService.resolveProxyUrl(
+      mode: app.proxyMode,
+      customProxy: app.proxyServer,
+    );
+  }
+
+  static String _proxyHostPort(String proxyUrl) {
+    final uri = Uri.tryParse(proxyUrl);
+    if (uri == null || uri.host.isEmpty || uri.port <= 0) return proxyUrl;
+    return '${uri.host}:${uri.port}';
   }
 
   @override

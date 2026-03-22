@@ -82,13 +82,13 @@ void main() {
     );
   }
 
-  LevelMetadata buildMeta({required String url}) {
+  LevelMetadata buildMeta({String? url, String? videoId}) {
     return LevelMetadata(
       levelPath: r'D:\BeatSaber\CustomLevels\A',
       songName: 'Song A',
       songAuthorName: 'Author A',
       lastModified: DateTime(2026, 1, 1),
-      cinemaConfig: CinemaConfig(videoUrl: url),
+      cinemaConfig: CinemaConfig(videoUrl: url, videoId: videoId),
       videoStatus: VideoConfigStatus.configuredMissingFile,
     );
   }
@@ -228,6 +228,65 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byIcon(Icons.movie), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_download), findsNothing);
+  });
+
+  testWidgets('videoId fallback builds youtube url and uses enqueue',
+      (tester) async {
+    final appBloc = AppBloc();
+    final fakeManager = _FakeDownloadManager();
+    appBloc.downloadManager = fakeManager;
+
+    final item = LevelListItem.level(
+      buildMeta(videoId: 'dQw4w9WgXcQ'),
+    );
+    await tester.pumpWidget(
+      buildHarness(
+        appBloc: appBloc,
+        items: [item],
+      ),
+    );
+
     expect(find.byIcon(Icons.cloud_download), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.cloud_download));
+    await tester.pump();
+
+    expect(fakeManager.enqueueCalls, 1);
+    expect(fakeManager.enqueueCustomCalls, 0);
+  });
+
+  testWidgets('rebinds task stream when manager becomes available later',
+      (tester) async {
+    final appBloc = AppBloc();
+    final item = LevelListItem.level(
+      buildMeta(videoId: 'dQw4w9WgXcQ'),
+    );
+    await tester.pumpWidget(
+      buildHarness(
+        appBloc: appBloc,
+        items: [item],
+      ),
+    );
+
+    final fakeManager = _FakeDownloadManager();
+    appBloc.downloadManager = fakeManager;
+
+    await tester.tap(find.byIcon(Icons.cloud_download));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    final completedTask = DownloadTask(
+      taskId: fakeManager.lastTaskId!,
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      outputDir: r'D:\BeatSaber\CustomLevels\A',
+      title: 'done',
+      status: DownloadStatus.completed,
+      outputPath: r'D:\BeatSaber\CustomLevels\A',
+    );
+    fakeManager.emitTasks([completedTask]);
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 }

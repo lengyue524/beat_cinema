@@ -1,217 +1,366 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:beat_cinema/l10n/app_localizations.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+// ignore_for_file: public_member_api_docs
+import 'dart:async';
+import 'dart:io';
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
+import 'package:beat_cinema/App/theme/app_colors.dart';
+import 'package:beat_cinema/Common/constants.dart';
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/level_info.dart';
 import 'package:beat_cinema/Modules/Manager/cinema_download_manager.dart';
+import 'package:beat_cinema/l10n/app_localizations.dart';
+import 'package:beat_cinema/models/cinema_config/cinema_config.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path/path.dart' as p;
+import 'package:url_launcher/url_launcher_string.dart';
 
-class CinemaSearchPage extends StatelessWidget {
-  CinemaSearchPage({
+class CinemaSearchPage extends StatefulWidget {
+  const CinemaSearchPage({
     super.key,
     required this.levelInfo,
-  }) {
-    searchTextController =
-        TextEditingController(text: levelInfo.customLevel.songName ?? "");
-  }
+  });
+
   final LevelInfo levelInfo;
-  late final TextEditingController searchTextController;
+
+  @override
+  State<CinemaSearchPage> createState() => _CinemaSearchPageState();
+}
+
+class _CinemaSearchPageState extends State<CinemaSearchPage> {
+  static const int _searchCount = 20;
+  late final TextEditingController _searchController;
+  final CinemaSearchBloc _searchBloc = CinemaSearchBloc();
+  final CinemaDownloadManager _downloadManager = CinemaDownloadManager();
+  StreamSubscription<Set<String>>? _downloadTaskSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(
+        text: widget.levelInfo.customLevel.songName ?? '');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _triggerSearch();
+    });
+    _downloadTaskSub = _downloadManager.downloadingTaskStream.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant CinemaSearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.levelInfo.levelPath == widget.levelInfo.levelPath) {
+      return;
+    }
+    final nextSongName = widget.levelInfo.customLevel.songName ?? '';
+    _searchController.text = nextSongName;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _triggerSearch();
+    });
+  }
+
+  @override
+  void dispose() {
+    _downloadTaskSub?.cancel();
+    _searchController.dispose();
+    _searchBloc.close();
+    super.dispose();
+  }
+
+  void _triggerSearch() {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    _searchBloc.add(
+        CinameSearchTextEvent(query, _searchCount, context.read<AppBloc>()));
+  }
+
+  void _switchPlatform(CinemaSearchPlatform platform) {
+    final appBloc = context.read<AppBloc>();
+    if (appBloc.cinemaSearchPlatform == platform) return;
+    appBloc.add(AppCinemaSearchPlatformUpdateEvent(platform));
+    _triggerSearch();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => CinemaSearchBloc(),
-      child: BlocBuilder<CinemaSearchBloc, CinemaSearchState>(
-        builder: (context, state) {
-          final songName = levelInfo.customLevel.songName;
-          if (state is CinemaSearchInitial &&
-              songName != null &&
-              songName.isNotEmpty) {
-            context.read<CinemaSearchBloc>().add(
-                CinameSearchTextEvent(songName, 20, context.read<AppBloc>()));
-          }
-          return Column(
-            children: [
-              Row(
-                children: [
-                  const SizedBox(
-                      width: 48, height: 48, child: Icon(Icons.search)),
-                  Expanded(
+    final l10n = AppLocalizations.of(context);
+    return BlocProvider.value(
+      value: _searchBloc,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+            child: Column(
+              children: [
+                BlocBuilder<AppBloc, AppState>(
+                  builder: (context, state) {
+                    final appState = state is AppLaunchComplated ? state : null;
+                    final selectedPlatform = appState?.cinemaSearchPlatform ??
+                        context.read<AppBloc>().cinemaSearchPlatform;
+                    return SegmentedButton<CinemaSearchPlatform>(
+                      segments: const [
+                        ButtonSegment<CinemaSearchPlatform>(
+                          value: CinemaSearchPlatform.youtube,
+                          icon: Icon(Icons.ondemand_video, size: 16),
+                          label: Text('YouTube'),
+                        ),
+                        ButtonSegment<CinemaSearchPlatform>(
+                          value: CinemaSearchPlatform.bilibili,
+                          icon: Icon(Icons.smart_display, size: 16),
+                          label: Text('Bilibili'),
+                        ),
+                      ],
+                      selected: {selectedPlatform},
+                      onSelectionChanged: (selection) {
+                        _switchPlatform(selection.first);
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
                       child: TextField(
-                    controller: searchTextController,
-                    decoration: InputDecoration.collapsed(
-                        hintText: AppLocalizations.of(context)!.search_tips),
-                    onSubmitted: (value) {
-                      context.read<CinemaSearchBloc>().add(
-                          CinameSearchTextEvent(
-                              value, 20, context.read<AppBloc>()));
-                    },
-                  )),
-                ],
-              ),
-              Expanded(child: getContent(state)),
-              // SearchAnchor(
-              //   builder: (context, controller) {
-              //     return SearchBar(
-              //         padding: const WidgetStatePropertyAll<EdgeInsets>(
-              //             EdgeInsets.symmetric(horizontal: 16.0)),
-              //         controller: controller,
-              //         leading: const Icon(Icons.search),
-              //         onSubmitted: (value) {
-              //           context.read<CinemaSearchBloc>().add(
-              //               CinameSearchTextEvent(
-              //                   value, 20, context.read<AppBloc>()));
-              //         },
-              //         onTap: () {
-              //           controller.openView();
-              //         },
-              //       );
-              //   },
-              //   suggestionsBuilder: (context, controller) {
-              //     if (state is CinemaSearchLoaded) {
-              //       return List<ListTile>.generate(state.videoInfos.length,
-              //           (index) {
-              //         final thumb = state.videoInfos[index].thumbnail;
-              //         final title = state.videoInfos[index].title;
-              //         final url = state.videoInfos[index].originalUrl;
-              //         return ListTile(
-              //           title: Row(
-              //             children: [
-              //               Container(
-              //                 width: 96,
-              //                 height: 54,
-              //                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-              //                 child: thumb == null
-              //                     ? Container(
-              //                         color: const Color.fromARGB(
-              //                             255, 248, 248, 248),
-              //                       )
-              //                     : Image.network(thumb),
-              //               ),
-              //               Expanded(
-              //                   child: Text(
-              //                 title ?? "",
-              //                 style: Theme.of(context).textTheme.labelMedium,
-              //               )),
-              //               IconButton(
-              //                   onPressed: () {
-              //                     if (url != null) {
-              //                       launchUrlString(url);
-              //                     }
-              //                   },
-              //                   icon: const Icon(Icons.public))
-              //             ],
-              //           ),
-              //         );
-              //       });
-              //     } else {
-              //       return List<ListTile>.generate(0, (index) {
-              //         return const ListTile(
-              //           title: CircularProgressIndicator(),
-              //         );
-              //       });
-              //     }
-              //   },
-              // ),
-              // Expanded(child: Text("xxx"))
-            ],
-          );
-        },
+                        controller: _searchController,
+                        style: const TextStyle(
+                            color: AppColors.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: l10n?.search_tips ?? '搜索...',
+                          hintStyle: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 13),
+                          filled: true,
+                          fillColor: AppColors.surface2,
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: AppColors.divider),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: AppColors.divider),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: AppColors.brandPurple, width: 1),
+                          ),
+                        ),
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => _triggerSearch(),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    FilledButton(
+                      onPressed: _triggerSearch,
+                      child: const Icon(Icons.search, size: 16),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.divider),
+          Expanded(
+            child: BlocBuilder<CinemaSearchBloc, CinemaSearchState>(
+              builder: (context, state) => _buildContent(state),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget getContent(CinemaSearchState state) {
+  Widget _buildContent(CinemaSearchState state) {
+    final l10n = AppLocalizations.of(context);
+    if (state is CinemaSearchLoading || state is CinemaSearchInitial) {
+      return const Center(
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
     if (state is CinemaSearchLoaded) {
-      return ListView.builder(
-          itemCount: state.videoInfos.length,
-          itemBuilder: (context, index) {
-            final videoInfo = state.videoInfos[index];
-            final thumb = videoInfo.thumbnail;
-            final title = videoInfo.title;
-            final url = videoInfo.originalUrl;
-            final duration = videoInfo.durationString ?? "00:00";
-            final resolution = videoInfo.resolution ?? "unknow";
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
-              child: Row(
-                children: [
-                  SizedBox(
+      if (state.videoInfos.isEmpty) {
+        return Center(
+          child: Text(
+            l10n?.empty_no_video ?? '未找到视频',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        );
+      }
+      return ListView.separated(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        itemCount: state.videoInfos.length,
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.xs),
+        itemBuilder: (context, index) {
+          final videoInfo = state.videoInfos[index];
+          final thumb = videoInfo.thumbnail;
+          final title = (videoInfo.title ?? '').trim();
+          final url = videoInfo.originalUrl;
+          final duration = videoInfo.durationString ?? '00:00';
+          final resolution = videoInfo.resolution ?? 'unknown';
+          final videoUrl = (videoInfo.originalUrl ?? '').trim();
+          final downloading = videoUrl.isNotEmpty &&
+              _downloadManager.isDownloading(
+                levelPath: widget.levelInfo.levelPath,
+                videoUrl: videoUrl,
+              );
+          final downloaded = !downloading && _isAlreadyDownloaded(videoUrl);
+
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: AppColors.surface2,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.divider, width: 1),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: SizedBox(
                     width: 96,
                     height: 54,
                     child: thumb == null
                         ? Container(
-                            color: const Color.fromARGB(255, 248, 248, 248),
+                            color: AppColors.surface3,
+                            child: const Icon(Icons.image_not_supported,
+                                color: AppColors.textDisabled, size: 18),
                           )
-                        : Image.network(thumb, fit: BoxFit.fill),
+                        : Image.network(thumb, fit: BoxFit.cover),
                   ),
-                  Expanded(
-                      child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title ?? "",
-                          style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.isEmpty ? '-' : title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Row(children: [
-                              const Icon(Icons.timer, size: 12),
-                              const SizedBox(width: 2),
-                              Text(
-                                duration,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              )
-                            ]),
-                            const SizedBox(
-                              width: 8,
-                            ),
-                            Text(
-                              resolution,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  )),
-                  IconButton(
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Row(
+                        children: [
+                          const Icon(Icons.timer,
+                              size: 12, color: AppColors.textSecondary),
+                          const SizedBox(width: 2),
+                          Text(
+                            duration,
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, fontSize: 11),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            resolution,
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  children: [
+                    if (downloading)
+                      const SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    else
+                      IconButton(
+                        tooltip: downloaded
+                            ? (l10n?.search_tooltip_downloaded ?? '已下载')
+                            : (l10n?.search_tooltip_download ?? '下载'),
+                        icon: Icon(
+                          downloaded ? Icons.check_circle : Icons.download,
+                          size: 18,
+                          color: downloaded
+                              ? AppColors.success
+                              : AppColors.textSecondary,
+                        ),
+                        onPressed: downloaded
+                            ? null
+                            : () {
+                                final appBloc = context.read<AppBloc>();
+                                if (appBloc.beatSaberPath == null) return;
+                                _downloadManager.startCinimaDownload(
+                                  context,
+                                  appBloc.beatSaberPath!,
+                                  videoInfo,
+                                  widget.levelInfo,
+                                  appBloc.cinemaVideoQuality,
+                                );
+                                setState(() {});
+                              },
+                      ),
+                    IconButton(
+                      tooltip: l10n?.search_tooltip_open_link ?? '打开链接',
+                      icon: const Icon(Icons.public, size: 18),
                       onPressed: () {
-                        AppBloc appBloc = context.read<AppBloc>();
-                        if (appBloc.beatSaberPath != null) {
-                          CinemaDownloadManager().startCinimaDownload(
-                              context,
-                              appBloc.beatSaberPath!,
-                              videoInfo,
-                              levelInfo,
-                              appBloc.cinemaVideoQuality);
-                        }
-                      },
-                      icon: const Icon(Icons.download)),
-                  IconButton(
-                      onPressed: () {
-                        if (url != null) {
+                        if (url != null && url.trim().isNotEmpty) {
                           launchUrlString(url);
                         }
                       },
-                      icon: const Icon(Icons.public))
-                ],
-              ),
-            );
-          });
-    } else {
-      return const Center(
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: CircularProgressIndicator(),
-        ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  bool _isAlreadyDownloaded(String videoUrl) {
+    if (videoUrl.isEmpty) return false;
+    final configFile = File(
+      p.join(widget.levelInfo.levelPath, Constants.cinemaConfigFileName),
+    );
+    if (!configFile.existsSync()) return false;
+    try {
+      final config = CinemaConfig.fromJson(configFile.readAsStringSync());
+      if ((config.videoUrl ?? '').trim() != videoUrl) {
+        return false;
+      }
+      final videoFile = (config.videoFile ?? '').trim();
+      if (videoFile.isEmpty) return false;
+      final resolved = p.isAbsolute(videoFile)
+          ? videoFile
+          : p.join(widget.levelInfo.levelPath, videoFile);
+      return File(resolved).existsSync();
+    } catch (_) {
+      return false;
     }
   }
 }

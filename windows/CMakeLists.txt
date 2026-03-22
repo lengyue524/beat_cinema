@@ -58,6 +58,47 @@ add_subdirectory("runner")
 include(flutter/generated_plugins.cmake)
 
 
+# === Full LGPL libmpv override (enables audio filters: pan, lavfi, etc.) ===
+# The default media_kit build strips audio filters for size. We replace it with
+# zhongfly/mpv-winbuild's LGPL build that includes them.
+set(CUSTOM_LIBMPV_7Z "mpv-dev-lgpl-x86_64-20260320-git-7b1ee86.7z")
+set(CUSTOM_LIBMPV_URL "https://github.com/zhongfly/mpv-winbuild/releases/download/2026-03-20-7b1ee86/${CUSTOM_LIBMPV_7Z}")
+set(CUSTOM_LIBMPV_ARCHIVE "${CMAKE_BINARY_DIR}/${CUSTOM_LIBMPV_7Z}")
+set(CUSTOM_LIBMPV_DIR "${CMAKE_BINARY_DIR}/libmpv-full")
+
+if(NOT EXISTS "${CUSTOM_LIBMPV_ARCHIVE}")
+  message(STATUS "Downloading full LGPL libmpv from zhongfly/mpv-winbuild...")
+  file(DOWNLOAD
+    "${CUSTOM_LIBMPV_URL}" "${CUSTOM_LIBMPV_ARCHIVE}"
+    SHOW_PROGRESS
+    EXPECTED_HASH SHA256=305643e2b4630530c944a12cb9e535bab7156621b749f09b2aea4482dfaa4bd9
+  )
+endif()
+
+if(NOT EXISTS "${CUSTOM_LIBMPV_DIR}/libmpv-2.dll")
+  make_directory("${CUSTOM_LIBMPV_DIR}")
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E tar xf "${CUSTOM_LIBMPV_ARCHIVE}"
+    WORKING_DIRECTORY "${CUSTOM_LIBMPV_DIR}"
+  )
+endif()
+
+# Overwrite the stripped DLL in the plugin's extraction directory at configure time
+# so the normal PLUGIN_BUNDLED_LIBRARIES install picks up the full version.
+if(EXISTS "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll")
+  file(COPY_FILE
+    "${CUSTOM_LIBMPV_DIR}/libmpv-2.dll"
+    "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll"
+  )
+endif()
+
+# Also override at build time (handles first build where plugin extracts after configure).
+add_custom_target(override_libmpv ALL
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+    "${CUSTOM_LIBMPV_DIR}/libmpv-2.dll"
+    "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll"
+)
+
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can
 # run in place. This is done instead of making a separate bundle (as on Linux)
@@ -81,6 +122,19 @@ install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}
 install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# Remove read-only attribute from previously installed binaries to allow overwrite.
+install(CODE "
+  foreach(_cfg Debug Profile Release)
+    set(_dir \"${CMAKE_BINARY_DIR}/runner/\${_cfg}\")
+    if(EXISTS \"\${_dir}\")
+      file(GLOB _files \"\${_dir}/*.dll\" \"\${_dir}/*.exe\")
+      foreach(_f \${_files})
+        execute_process(COMMAND cmd /c attrib -R \"\${_f}\" OUTPUT_QUIET ERROR_QUIET)
+      endforeach()
+    endif()
+  endforeach()
+" COMPONENT Runtime)
+
 if(PLUGIN_BUNDLED_LIBRARIES)
   install(FILES "${PLUGIN_BUNDLED_LIBRARIES}"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
@@ -100,3 +154,4 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+

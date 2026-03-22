@@ -18,6 +18,17 @@ class CinemaDownloadManager {
   factory CinemaDownloadManager() => _instance;
   static final CinemaDownloadManager _instance =
       CinemaDownloadManager._internal();
+  final Set<String> _downloadingTaskKeys = <String>{};
+  final StreamController<Set<String>> _downloadingController =
+      StreamController<Set<String>>.broadcast();
+
+  Stream<Set<String>> get downloadingTaskStream =>
+      _downloadingController.stream;
+  Set<String> get downloadingTaskKeys => Set.unmodifiable(_downloadingTaskKeys);
+
+  bool isDownloading({required String levelPath, required String videoUrl}) {
+    return _downloadingTaskKeys.contains(_taskKey(levelPath, videoUrl));
+  }
 
   void startCinimaDownload(
       BuildContext context,
@@ -25,6 +36,16 @@ class CinemaDownloadManager {
       DlpVideoInfo videoInfo,
       LevelInfo levelInfo,
       CinemaVideoQuality quality) async {
+    final videoUrl = (videoInfo.originalUrl ?? '').trim();
+    if (videoUrl.isEmpty) {
+      return;
+    }
+    final key = _taskKey(levelInfo.levelPath, videoUrl);
+    if (_downloadingTaskKeys.contains(key)) {
+      return;
+    }
+    _setDownloading(key, true);
+
     // 在异步操作开始前保存 ScaffoldMessenger 和本地化字符串的引用
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final localizations = AppLocalizations.of(context)!;
@@ -33,28 +54,40 @@ class CinemaDownloadManager {
     final downloadStartMsg =
         sprintf(localizations.download_start, [videoInfo.title]);
 
+    var completedHandled = false;
     ReceivePort receivePort = ReceivePort();
     receivePort.listen((value) {
       String msg = String.fromCharCodes(value);
       if (msg == Constants.sendPortDoneString) {
         scaffoldMessenger
             .showSnackBar(SnackBar(content: Text(downloadCompleteMsg)));
+        completedHandled = true;
+        _setDownloading(key, false);
       } else {
         log.d("downloadMSG:$msg");
       }
     }, onDone: () {
       receivePort.close();
+      if (!completedHandled) {
+        _setDownloading(key, false);
+      }
     }, onError: (e) {
       receivePort.close();
       final downloadErrorMsg = sprintf(
           localizations.download_error, [videoInfo.title, e.toString()]);
       scaffoldMessenger.showSnackBar(SnackBar(content: Text(downloadErrorMsg)));
+      _setDownloading(key, false);
     });
     scaffoldMessenger.showSnackBar(SnackBar(content: Text(downloadStartMsg)));
-    await compute(
-        _downloadCinemaWithYTDlp,
-        CinemaDownloadParams(receivePort.sendPort, videoInfo, levelInfo,
-            beatSaberPath, quality));
+    try {
+      await compute(
+          _downloadCinemaWithYTDlp,
+          CinemaDownloadParams(receivePort.sendPort, videoInfo, levelInfo,
+              beatSaberPath, quality));
+    } catch (_) {
+      _setDownloading(key, false);
+      rethrow;
+    }
   }
 
   static void _downloadCinemaWithYTDlp(CinemaDownloadParams params) async {
@@ -150,6 +183,19 @@ class CinemaDownloadManager {
       return await configFile.readAsString();
     }
     return null;
+  }
+
+  void _setDownloading(String key, bool downloading) {
+    if (downloading) {
+      _downloadingTaskKeys.add(key);
+    } else {
+      _downloadingTaskKeys.remove(key);
+    }
+    _downloadingController.add(Set<String>.from(_downloadingTaskKeys));
+  }
+
+  static String _taskKey(String levelPath, String videoUrl) {
+    return '${levelPath.trim().toLowerCase()}|${videoUrl.trim().toLowerCase()}';
   }
 }
 

@@ -17,6 +17,10 @@ class Constants {
       "sharedPreferencesCinemaSearchPlatform";
   static const String sharedPreferencesCinemaVideoQuality =
       "sharedPreferencesCinemaVideoQuality";
+  static const String sharedPreferencesProxyMode =
+      "sharedPreferencesProxyMode";
+  static const String sharedPreferencesProxyServer =
+      "sharedPreferencesProxyServer";
 
   static const String sendPortDoneString = "!@#\$%^&*";
 }
