@@ -144,6 +144,17 @@
     "ctx_file_info": "文件信息",
     "ctx_open_folder": "打开文件夹",
     "ctx_copy_name": "复制歌名",
+    "ctx_add_to_playlist": "添加到歌单",
+    "ctx_delete_song_directory": "删除歌曲目录",
+    "ctx_clear_selection": "清空选择",
+    "ctx_selected_count": "已选择 {count} 项",
+    "@ctx_selected_count": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
     "ctx_delete_config": "删除配置",
     "ctx_download_configured_video": "按配置下载视频",
     "download_task_config_video_title": "配置视频：{songName}",
@@ -165,6 +176,15 @@
     },
     "common_cancel": "取消",
     "common_delete": "删除",
+    "dialog_delete_song_dirs_title": "删除歌曲目录？",
+    "dialog_delete_song_dirs_content": "将删除已选 {count} 个歌曲目录，此操作不可恢复。",
+    "@dialog_delete_song_dirs_content": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
     "mini_player_stop": "停止播放",
     "mini_player_cover_semantic": "当前播放歌曲封面",
 
@@ -174,11 +194,38 @@
     "snack_video_file_recovered": "已补齐视频文件",
     "snack_video_download_failed": "配置视频下载失败",
     "snack_video_download_enqueued": "已加入下载队列",
+    "snack_add_to_playlist_not_ready": "添加到歌单暂未接入（共 {count} 项）",
+    "@snack_add_to_playlist_not_ready": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "snack_batch_result": "操作完成：成功 {success} / 失败 {failed}",
+    "@snack_batch_result": {
+        "placeholders": {
+            "success": {
+                "type": "int"
+            },
+            "failed": {
+                "type": "int"
+            }
+        }
+    },
+    "snack_batch_action_failed": "批量操作失败：{error}",
+    "@snack_batch_action_failed": {
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
     "search_tooltip_download": "下载",
     "search_tooltip_downloaded": "已下载",
     "search_tooltip_open_link": "打开链接",
     "search_open_link_failed": "无法打开网页链接，请稍后重试",
-    "search_bbdown_missing_fallback": "未检测到 BBDown，当前已回退使用 yt-dlp。请安装 BBDown 以启用 Bilibili 专用引擎。",
+    "search_bbdown_missing_fallback": "未检测到 BBDown，请在设置页面下载并登录后再使用 Bilibili 搜索。",
     "search_tooltip_play": "应用内播放",
     "search_tooltip_play_loading": "正在准备播放",
     "search_play_failed": "视频播放失败，请稍后重试",
@@ -208,6 +255,21 @@
     "playlist_matched": "已匹配",
     "playlist_not_installed": "未安装",
     "playlist_filter_unconfigured": "仅显示未配置",
+    "playlist_delete_title": "删除歌单条目",
+    "playlist_delete_content": "将删除已选 {count} 个歌单条目。",
+    "@playlist_delete_content": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "playlist_delete_with_directory": "同步删除歌曲目录",
+    "playlist_delete_no_directory_hint": "当前条目未匹配本地歌曲目录，仅删除歌单项。",
+    "playlist_move_to_playlist": "移动到歌单",
+    "playlist_picker_search_hint": "搜索歌单名称",
+    "playlist_picker_empty": "未找到可选歌单",
+    "playlist_picker_current_disabled": "当前歌单不可作为移动目标",
     "playlist_list_title": "播放列表",
     "playlist_export": "导出",
     "playlist_all_configured": "所有歌曲均已配置",

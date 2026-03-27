@@ -8,6 +8,7 @@ import 'package:beat_cinema/Common/constants.dart';
 import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Services/managers/download_manager.dart';
 import 'package:beat_cinema/Services/repositories/video_repository.dart';
+import 'package:beat_cinema/Services/services/atomic_file_service.dart';
 import 'package:beat_cinema/Services/services/beatsaver_download_service.dart';
 import 'package:beat_cinema/Services/services/level_parse_service.dart';
 import 'package:beat_cinema/Services/services/playlist_hash_index_cache_service.dart';
@@ -27,6 +28,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
   final BeatSaverDownloadService _beatSaverDownloadService;
   final DownloadManager? _downloadManager;
   final PlaylistHashIndexCacheService _hashIndexCacheService;
+  final AtomicFileService _atomicFileService;
 
   List<PlaylistWithStatus> _playlists = [];
   List<PlaylistInfo> _rawPlaylists = [];
@@ -44,6 +46,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
   ExportResult? _latestExportResult;
   Map<String, String> _cachedHashPathIndex = const {};
   int _rebuildNoticeSerial = 0;
+  int _actionNoticeSerial = 0;
 
   PlaylistBloc({
     PlaylistParseService? parseService,
@@ -51,6 +54,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
     BeatSaverDownloadService? beatSaverDownloadService,
     DownloadManager? downloadManager,
     PlaylistHashIndexCacheService? hashIndexCacheService,
+    AtomicFileService? atomicFileService,
   })  : _parseService = parseService ?? PlaylistParseService(),
         _levelParseService = levelParseService ?? LevelParseService(),
         _beatSaverDownloadService =
@@ -58,6 +62,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
         _downloadManager = downloadManager,
         _hashIndexCacheService =
             hashIndexCacheService ?? PlaylistHashIndexCacheService(),
+        _atomicFileService = atomicFileService ?? AtomicFileService(),
         super(PlaylistInitial()) {
     on<LoadPlaylistsEvent>(_onLoad);
     on<SelectPlaylistEvent>(_onSelect);
@@ -72,6 +77,12 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
     on<RebuildPlaylistHashIndexEvent>(_onRebuildHashIndex);
     on<DismissPlaylistRebuildNoticeEvent>(_onDismissRebuildNotice);
     on<RefreshMatchedLevelEvent>(_onRefreshMatchedLevel);
+    on<DeletePlaylistSongsEvent>(_onDeletePlaylistSongs);
+    on<MutatePlaylistSongsEvent>(_onMutatePlaylistSongs);
+    on<AddLevelsToPlaylistEvent>(_onAddLevelsToPlaylist);
+    on<CreatePlaylistEvent>(_onCreatePlaylist);
+    on<UpdatePlaylistCoverEvent>(_onUpdatePlaylistCover);
+    on<DismissPlaylistActionNoticeEvent>(_onDismissActionNotice);
 
     _downloadSub = _downloadManager?.taskStream.listen((_) {
       add(DownloadTasksUpdatedEvent());
@@ -352,6 +363,502 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
     Emitter<PlaylistState> emit,
   ) {
     emit(_buildLoadedState());
+  }
+
+  void _onDismissActionNotice(
+    DismissPlaylistActionNoticeEvent event,
+    Emitter<PlaylistState> emit,
+  ) {
+    emit(_buildLoadedState());
+  }
+
+  Future<void> _onDeletePlaylistSongs(
+    DeletePlaylistSongsEvent event,
+    Emitter<PlaylistState> emit,
+  ) async {
+    if (_selectedIndex == null || _selectedIndex! >= _playlists.length) return;
+    final selectedPaths = event.levelPaths
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    final selectedIdentities = event.songIdentities
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (selectedPaths.isEmpty && selectedIdentities.isEmpty) return;
+
+    final playlist = _playlists[_selectedIndex!];
+    final selectedSongs = _selectedSongsForDelete(
+      playlist: playlist,
+      levelPaths: selectedPaths,
+      songIdentities: selectedIdentities,
+    );
+    if (selectedSongs.isEmpty) return;
+
+    final sourcePath = playlist.info.filePath;
+    final sourceMap = await _readPlaylistMap(sourcePath);
+    if (sourceMap == null) {
+      _emitActionFailure(
+        emit,
+        selectedSongs.length,
+        '读取歌单文件失败',
+        type: 'delete',
+      );
+      return;
+    }
+    final sourceInfo = _toPlaylistFileInfo(sourcePath, sourceMap);
+
+    final keysToRemove = selectedSongs.map((song) => _songIdentity(song.song)).toSet();
+    final remainingSongs = sourceInfo.songs
+        .where((song) => !keysToRemove.contains(_songIdentity(song)))
+        .toList(growable: false);
+
+    await _writePlaylistSongs(
+      filePath: sourcePath,
+      originalMap: sourceMap,
+      songs: remainingSongs,
+    );
+
+    var deleteFailed = 0;
+    final deleteFailures = <String>[];
+    if (event.deleteSongDirectories) {
+      final paths = selectedSongs
+          .map((song) => song.matchedLevel?.levelPath ?? '')
+          .where((e) => e.trim().isNotEmpty)
+          .toSet();
+      for (final levelPath in paths) {
+        try {
+          final dir = Directory(levelPath);
+          if (!await dir.exists()) {
+            deleteFailed++;
+            deleteFailures.add('$levelPath: 不存在');
+            continue;
+          }
+          await dir.delete(recursive: true);
+        } on FileSystemException catch (e) {
+          deleteFailed++;
+          deleteFailures.add('$levelPath: ${e.message}');
+        } catch (e) {
+          deleteFailed++;
+          deleteFailures.add('$levelPath: $e');
+        }
+      }
+    }
+
+    await _reloadPlaylistsFromDisk();
+    final failedCount = deleteFailed;
+    final successCount = selectedSongs.length - failedCount;
+    _actionNoticeSerial++;
+    emit(_buildLoadedState(
+      actionNotice: PlaylistActionNotice(
+        serial: _actionNoticeSerial,
+        successCount: math.max(0, successCount),
+        failedCount: failedCount,
+        failureSummary: deleteFailures.isEmpty
+            ? null
+            : deleteFailures.take(3).join('；'),
+        type: 'delete',
+      ),
+    ));
+  }
+
+  Future<void> _onMutatePlaylistSongs(
+    MutatePlaylistSongsEvent event,
+    Emitter<PlaylistState> emit,
+  ) async {
+    if (_selectedIndex == null || _selectedIndex! >= _playlists.length) return;
+    final selectedPaths = event.levelPaths
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (selectedPaths.isEmpty) return;
+    final targetPath = event.targetPlaylistPath.trim();
+    if (targetPath.isEmpty) return;
+
+    final sourcePlaylist = _playlists[_selectedIndex!];
+    if (sourcePlaylist.info.filePath.trim().toLowerCase() ==
+        targetPath.toLowerCase()) {
+      return;
+    }
+
+    final selectedSongs = _selectedSongsByLevelPaths(sourcePlaylist, selectedPaths);
+    if (selectedSongs.isEmpty) return;
+
+    final sourceMap = await _readPlaylistMap(sourcePlaylist.info.filePath);
+    final targetMap = await _readPlaylistMap(targetPath);
+    if (sourceMap == null || targetMap == null) {
+      _emitActionFailure(
+        emit,
+        selectedSongs.length,
+        '读取歌单文件失败',
+        type: event.mode == PlaylistMutationMode.move ? 'move' : 'add',
+      );
+      return;
+    }
+
+    final sourceInfo = _toPlaylistFileInfo(sourcePlaylist.info.filePath, sourceMap);
+    final targetInfo = _toPlaylistFileInfo(targetPath, targetMap);
+    final selectedPlainSongs =
+        selectedSongs.map((song) => song.song).toList(growable: false);
+
+    final mergedTargetSongs =
+        _mergeSongsWithoutDuplicates(targetInfo.songs, selectedPlainSongs);
+    final selectedKeys =
+        selectedPlainSongs.map((song) => _songIdentity(song)).toSet();
+    final remainingSourceSongs = sourceInfo.songs
+        .where((song) => !selectedKeys.contains(_songIdentity(song)))
+        .toList(growable: false);
+
+    try {
+      await _writePlaylistSongs(
+        filePath: targetPath,
+        originalMap: targetMap,
+        songs: mergedTargetSongs,
+      );
+
+      if (event.mode == PlaylistMutationMode.move) {
+        await _writePlaylistSongs(
+          filePath: sourcePlaylist.info.filePath,
+          originalMap: sourceMap,
+          songs: remainingSourceSongs,
+        );
+      }
+    } catch (e) {
+      if (event.mode == PlaylistMutationMode.move) {
+        // Best-effort rollback to keep source/target consistent.
+        try {
+          await _writePlaylistSongs(
+            filePath: targetPath,
+            originalMap: targetMap,
+            songs: targetInfo.songs,
+          );
+        } catch (rollbackError) {
+          log.e('[PlaylistMutation] rollback target failed: $rollbackError');
+        }
+        try {
+          await _writePlaylistSongs(
+            filePath: sourcePlaylist.info.filePath,
+            originalMap: sourceMap,
+            songs: sourceInfo.songs,
+          );
+        } catch (rollbackError) {
+          log.e('[PlaylistMutation] rollback source failed: $rollbackError');
+        }
+      }
+      _emitActionFailure(
+        emit,
+        selectedSongs.length,
+        e.toString(),
+        type: event.mode == PlaylistMutationMode.move ? 'move' : 'add',
+      );
+      return;
+    }
+
+    await _reloadPlaylistsFromDisk();
+    _actionNoticeSerial++;
+    emit(_buildLoadedState(
+      actionNotice: PlaylistActionNotice(
+        serial: _actionNoticeSerial,
+        successCount: selectedSongs.length,
+        failedCount: 0,
+        type: event.mode == PlaylistMutationMode.move ? 'move' : 'add',
+      ),
+    ));
+  }
+
+  Future<void> _onAddLevelsToPlaylist(
+    AddLevelsToPlaylistEvent event,
+    Emitter<PlaylistState> emit,
+  ) async {
+    final targetPath = event.targetPlaylistPath.trim();
+    if (targetPath.isEmpty || event.levels.isEmpty) return;
+    final targetMap = await _readPlaylistMap(targetPath);
+    if (targetMap == null) {
+      _emitActionFailure(
+        emit,
+        event.levels.length,
+        '读取歌单文件失败',
+        type: 'add',
+      );
+      return;
+    }
+    final targetInfo = _toPlaylistFileInfo(targetPath, targetMap);
+    final incoming = event.levels.map(_playlistSongFromLevel).toList(growable: false);
+    final merged = _mergeSongsWithoutDuplicates(targetInfo.songs, incoming);
+    try {
+      await _writePlaylistSongs(
+        filePath: targetPath,
+        originalMap: targetMap,
+        songs: merged,
+      );
+    } catch (e) {
+      _emitActionFailure(
+        emit,
+        event.levels.length,
+        e.toString(),
+        type: 'add',
+      );
+      return;
+    }
+    await _reloadPlaylistsFromDisk();
+    _actionNoticeSerial++;
+    emit(_buildLoadedState(
+      actionNotice: PlaylistActionNotice(
+        serial: _actionNoticeSerial,
+        successCount: event.levels.length,
+        failedCount: 0,
+        type: 'add',
+      ),
+    ));
+  }
+
+  Future<void> _onCreatePlaylist(
+    CreatePlaylistEvent event,
+    Emitter<PlaylistState> emit,
+  ) async {
+    final beatSaberPath = _currentBeatSaberPath;
+    final title = event.title.trim();
+    if (beatSaberPath == null || title.isEmpty) {
+      _emitActionFailure(emit, 1, '创建歌单失败：路径或名称无效', type: 'create');
+      return;
+    }
+    final playlistDir = Directory(p.join(beatSaberPath, Constants.playlistPath));
+    await playlistDir.create(recursive: true);
+    final safeName = _sanitizePlaylistFileName(title);
+    final filePath = p.join(playlistDir.path, '$safeName.bplist');
+    if (await File(filePath).exists()) {
+      _emitActionFailure(emit, 1, '同名歌单已存在', type: 'create');
+      return;
+    }
+    final payload = <String, dynamic>{
+      'playlistTitle': title,
+      'songs': <Map<String, dynamic>>[],
+    };
+    try {
+      await _atomicFileService.writeString(
+        filePath,
+        const JsonEncoder.withIndent('  ').convert(payload),
+      );
+    } catch (e) {
+      _emitActionFailure(emit, 1, e.toString(), type: 'create');
+      return;
+    }
+    await _reloadPlaylistsFromDisk();
+    _actionNoticeSerial++;
+    emit(_buildLoadedState(
+      actionNotice: PlaylistActionNotice(
+        serial: _actionNoticeSerial,
+        successCount: 1,
+        failedCount: 0,
+        type: 'create',
+      ),
+    ));
+  }
+
+  Future<void> _onUpdatePlaylistCover(
+    UpdatePlaylistCoverEvent event,
+    Emitter<PlaylistState> emit,
+  ) async {
+    final playlistPath = event.playlistPath.trim();
+    if (playlistPath.isEmpty) return;
+    final map = await _readPlaylistMap(playlistPath);
+    if (map == null) {
+      _emitActionFailure(emit, 1, '读取歌单文件失败', type: 'cover');
+      return;
+    }
+    final next = Map<String, dynamic>.from(map);
+    final image = (event.imageBase64 ?? '').trim();
+    if (image.isEmpty) {
+      next.remove('image');
+    } else {
+      next['image'] = image;
+    }
+    try {
+      await _atomicFileService.writeString(
+        playlistPath,
+        const JsonEncoder.withIndent('  ').convert(next),
+      );
+    } catch (e) {
+      _emitActionFailure(emit, 1, e.toString(), type: 'cover');
+      return;
+    }
+    await _reloadPlaylistsFromDisk();
+    _actionNoticeSerial++;
+    emit(_buildLoadedState(
+      actionNotice: PlaylistActionNotice(
+        serial: _actionNoticeSerial,
+        successCount: 1,
+        failedCount: 0,
+        type: 'cover',
+      ),
+    ));
+  }
+
+  Future<Map<String, dynamic>?> _readPlaylistMap(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        log.w('[PlaylistMutation] file missing path=$filePath');
+        return null;
+      }
+      final content = await file.readAsString();
+      final map = json.decode(content);
+      if (map is! Map<String, dynamic>) return null;
+      return map;
+    } catch (e) {
+      log.e('[PlaylistMutation] read map failed path=$filePath error=$e');
+      return null;
+    }
+  }
+
+  _PlaylistFileInfo _toPlaylistFileInfo(
+    String filePath,
+    Map<String, dynamic> map,
+  ) {
+    final songs = <PlaylistSong>[];
+    final songList = map['songs'] as List<dynamic>? ?? const [];
+    for (final raw in songList) {
+      if (raw is! Map<String, dynamic>) continue;
+      final rawKey = (raw['key'] as String?)?.trim() ?? '';
+      final rawHash = (raw['hash'] as String?)?.trim() ?? '';
+      final difficulties = <String>[];
+      final diffList = raw['difficulties'] as List<dynamic>? ?? const [];
+      for (final item in diffList) {
+        if (item is Map<String, dynamic>) {
+          final name = (item['name'] as String?)?.trim();
+          if (name != null && name.isNotEmpty) difficulties.add(name);
+        }
+      }
+      songs.add(
+        PlaylistSong(
+          key: rawKey.toLowerCase(),
+          hash: (rawHash.isNotEmpty ? rawHash : rawKey).toLowerCase(),
+          songName: raw['songName'] as String?,
+          difficulties: difficulties,
+          missingKey: rawKey.isEmpty && rawHash.isNotEmpty,
+        ),
+      );
+    }
+    return _PlaylistFileInfo(filePath: filePath, songs: songs);
+  }
+
+  Future<void> _writePlaylistSongs({
+    required String filePath,
+    required Map<String, dynamic> originalMap,
+    required List<PlaylistSong> songs,
+  }) async {
+    final next = Map<String, dynamic>.from(originalMap);
+    next['songs'] = songs.map((song) {
+      return <String, dynamic>{
+        'key': song.key,
+        'hash': song.hash,
+        if ((song.songName ?? '').trim().isNotEmpty) 'songName': song.songName,
+        'difficulties': song.difficulties
+            .map((name) => <String, dynamic>{'name': name})
+            .toList(growable: false),
+      };
+    }).toList(growable: false);
+    await _atomicFileService.writeString(
+      filePath,
+      const JsonEncoder.withIndent('  ').convert(next),
+    );
+  }
+
+  Future<void> _reloadPlaylistsFromDisk() async {
+    if (_currentBeatSaberPath == null) return;
+    final raw = await _parseService.parseAll(_currentBeatSaberPath!);
+    _rawPlaylists = raw;
+    _playlists = _buildPlaylists(
+      raw,
+      _levels,
+      cachedHashPathIndex: _cachedHashPathIndex,
+    );
+    if (_selectedIndex != null && _selectedIndex! >= _playlists.length) {
+      _selectedIndex = null;
+    }
+  }
+
+  List<PlaylistSongWithStatus> _selectedSongsByLevelPaths(
+    PlaylistWithStatus playlist,
+    Set<String> levelPaths,
+  ) {
+    return playlist.songs.where((song) {
+      final path = song.matchedLevel?.levelPath.trim().toLowerCase() ?? '';
+      return path.isNotEmpty && levelPaths.contains(path);
+    }).toList(growable: false);
+  }
+
+  List<PlaylistSongWithStatus> _selectedSongsForDelete({
+    required PlaylistWithStatus playlist,
+    required Set<String> levelPaths,
+    required Set<String> songIdentities,
+  }) {
+    return playlist.songs.where((song) {
+      final path = song.matchedLevel?.levelPath.trim().toLowerCase() ?? '';
+      if (path.isNotEmpty && levelPaths.contains(path)) return true;
+      final identity = _songIdentity(song.song);
+      if (identity.isNotEmpty && songIdentities.contains(identity)) return true;
+      return false;
+    }).toList(growable: false);
+  }
+
+  List<PlaylistSong> _mergeSongsWithoutDuplicates(
+    List<PlaylistSong> base,
+    List<PlaylistSong> incoming,
+  ) {
+    final seen = <String>{for (final song in base) _songIdentity(song)};
+    final next = List<PlaylistSong>.from(base);
+    for (final song in incoming) {
+      final id = _songIdentity(song);
+      if (seen.contains(id)) continue;
+      seen.add(id);
+      next.add(song);
+    }
+    return next;
+  }
+
+  String _songIdentity(PlaylistSong song) {
+    final key = song.key.trim().toLowerCase();
+    final hash = song.hash.trim().toLowerCase();
+    return '$key|$hash';
+  }
+
+  PlaylistSong _playlistSongFromLevel(LevelMetadata level) {
+    final mapHash = level.mapHash.trim().toLowerCase();
+    final fallback = p.basename(level.levelPath).trim().toLowerCase();
+    final identity = mapHash.isNotEmpty ? mapHash : fallback;
+    return PlaylistSong(
+      key: identity,
+      hash: identity,
+      songName: level.songName,
+      difficulties: level.difficulties,
+    );
+  }
+
+  String _sanitizePlaylistFileName(String input) {
+    final sanitized = input
+        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return sanitized.isEmpty ? 'New Playlist' : sanitized;
+  }
+
+  void _emitActionFailure(
+    Emitter<PlaylistState> emit,
+    int requestedCount,
+    String message, {
+    required String type,
+  }) {
+    _actionNoticeSerial++;
+    emit(_buildLoadedState(
+      actionNotice: PlaylistActionNotice(
+        serial: _actionNoticeSerial,
+        successCount: 0,
+        failedCount: math.max(1, requestedCount),
+        failureSummary: message,
+        type: type,
+      ),
+    ));
   }
 
   Future<void> _onRefreshMatchedLevel(
@@ -1534,6 +2041,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
     double exportProgress = 0,
     ExportResult? exportResult,
     PlaylistRebuildNotice? rebuildNotice,
+    PlaylistActionNotice? actionNotice,
   }) {
     return PlaylistLoaded(
       playlists: _playlists,
@@ -1543,6 +2051,7 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
       exportProgress: exportProgress,
       exportResult: exportResult ?? _latestExportResult,
       rebuildNotice: rebuildNotice,
+      actionNotice: actionNotice,
     );
   }
 
@@ -1708,6 +2217,16 @@ class _PlaylistMatchChunk {
     required this.payload,
     required this.songCount,
   });
+}
+
+class _PlaylistFileInfo {
+  const _PlaylistFileInfo({
+    required this.filePath,
+    required this.songs,
+  });
+
+  final String filePath;
+  final List<PlaylistSong> songs;
 }
 
 List<Map<String, dynamic>> _matchPlaylistChunkWorker(

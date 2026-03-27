@@ -848,6 +848,30 @@ abstract class AppLocalizations {
   /// **'Copy song name'**
   String get ctx_copy_name;
 
+  /// No description provided for @ctx_add_to_playlist.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to playlist'**
+  String get ctx_add_to_playlist;
+
+  /// No description provided for @ctx_delete_song_directory.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete song directory'**
+  String get ctx_delete_song_directory;
+
+  /// No description provided for @ctx_clear_selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear selection'**
+  String get ctx_clear_selection;
+
+  /// No description provided for @ctx_selected_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String ctx_selected_count(int count);
+
   /// No description provided for @ctx_delete_config.
   ///
   /// In en, this message translates to:
@@ -889,6 +913,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete'**
   String get common_delete;
+
+  /// No description provided for @dialog_delete_song_dirs_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete song directories?'**
+  String get dialog_delete_song_dirs_title;
+
+  /// No description provided for @dialog_delete_song_dirs_content.
+  ///
+  /// In en, this message translates to:
+  /// **'This will delete {count} selected song directories and cannot be undone.'**
+  String dialog_delete_song_dirs_content(int count);
 
   /// No description provided for @mini_player_stop.
   ///
@@ -938,6 +974,24 @@ abstract class AppLocalizations {
   /// **'Added to download queue'**
   String get snack_video_download_enqueued;
 
+  /// No description provided for @snack_add_to_playlist_not_ready.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to playlist is not wired yet ({count} items)'**
+  String snack_add_to_playlist_not_ready(int count);
+
+  /// No description provided for @snack_batch_result.
+  ///
+  /// In en, this message translates to:
+  /// **'Done: success {success} / failed {failed}'**
+  String snack_batch_result(int success, int failed);
+
+  /// No description provided for @snack_batch_action_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch action failed: {error}'**
+  String snack_batch_action_failed(String error);
+
   /// No description provided for @search_tooltip_download.
   ///
   /// In en, this message translates to:
@@ -965,7 +1019,7 @@ abstract class AppLocalizations {
   /// No description provided for @search_bbdown_missing_fallback.
   ///
   /// In en, this message translates to:
-  /// **'BBDown is not installed. Fallback to yt-dlp is active. Install BBDown to enable the dedicated Bilibili engine.'**
+  /// **'BBDown is not installed. Please download it and finish login in Settings before using Bilibili search.'**
   String get search_bbdown_missing_fallback;
 
   /// No description provided for @search_tooltip_play.
@@ -1093,6 +1147,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show unconfigured only'**
   String get playlist_filter_unconfigured;
+
+  /// No description provided for @playlist_delete_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete playlist entries'**
+  String get playlist_delete_title;
+
+  /// No description provided for @playlist_delete_content.
+  ///
+  /// In en, this message translates to:
+  /// **'This will remove {count} selected playlist entries.'**
+  String playlist_delete_content(int count);
+
+  /// No description provided for @playlist_delete_with_directory.
+  ///
+  /// In en, this message translates to:
+  /// **'Also delete song directories'**
+  String get playlist_delete_with_directory;
+
+  /// No description provided for @playlist_delete_no_directory_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected entries have no local song directory; only playlist entries will be removed.'**
+  String get playlist_delete_no_directory_hint;
+
+  /// No description provided for @playlist_move_to_playlist.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to playlist'**
+  String get playlist_move_to_playlist;
+
+  /// No description provided for @playlist_picker_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search playlist name'**
+  String get playlist_picker_search_hint;
+
+  /// No description provided for @playlist_picker_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No playlist found'**
+  String get playlist_picker_empty;
+
+  /// No description provided for @playlist_picker_current_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Current playlist cannot be the move target'**
+  String get playlist_picker_current_disabled;
 
   /// No description provided for @playlist_list_title.
   ///

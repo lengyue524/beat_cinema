@@ -144,6 +144,17 @@
     "ctx_file_info": "File info",
     "ctx_open_folder": "Open folder",
     "ctx_copy_name": "Copy song name",
+    "ctx_add_to_playlist": "Add to playlist",
+    "ctx_delete_song_directory": "Delete song directory",
+    "ctx_clear_selection": "Clear selection",
+    "ctx_selected_count": "{count} selected",
+    "@ctx_selected_count": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
     "ctx_delete_config": "Delete config",
     "ctx_download_configured_video": "Download configured video",
     "download_task_config_video_title": "Config Video: {songName}",
@@ -165,6 +176,15 @@
     },
     "common_cancel": "Cancel",
     "common_delete": "Delete",
+    "dialog_delete_song_dirs_title": "Delete song directories?",
+    "dialog_delete_song_dirs_content": "This will delete {count} selected song directories and cannot be undone.",
+    "@dialog_delete_song_dirs_content": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
     "mini_player_stop": "Stop playback",
     "mini_player_cover_semantic": "Cover art of current playing song",
 
@@ -174,11 +194,38 @@
     "snack_video_file_recovered": "Video file recovered",
     "snack_video_download_failed": "Configured video download failed",
     "snack_video_download_enqueued": "Added to download queue",
+    "snack_add_to_playlist_not_ready": "Add to playlist is not wired yet ({count} items)",
+    "@snack_add_to_playlist_not_ready": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "snack_batch_result": "Done: success {success} / failed {failed}",
+    "@snack_batch_result": {
+        "placeholders": {
+            "success": {
+                "type": "int"
+            },
+            "failed": {
+                "type": "int"
+            }
+        }
+    },
+    "snack_batch_action_failed": "Batch action failed: {error}",
+    "@snack_batch_action_failed": {
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
     "search_tooltip_download": "Download",
     "search_tooltip_downloaded": "Downloaded",
     "search_tooltip_open_link": "Open link",
     "search_open_link_failed": "Unable to open the webpage. Please try again.",
-    "search_bbdown_missing_fallback": "BBDown is not installed. Fallback to yt-dlp is active. Install BBDown to enable the dedicated Bilibili engine.",
+    "search_bbdown_missing_fallback": "BBDown is not installed. Please download it and finish login in Settings before using Bilibili search.",
     "search_tooltip_play": "Play in app",
     "search_tooltip_play_loading": "Preparing playback",
     "search_play_failed": "Failed to play video. Please try again.",
@@ -208,6 +255,21 @@
     "playlist_matched": "matched",
     "playlist_not_installed": "Not installed",
     "playlist_filter_unconfigured": "Show unconfigured only",
+    "playlist_delete_title": "Delete playlist entries",
+    "playlist_delete_content": "This will remove {count} selected playlist entries.",
+    "@playlist_delete_content": {
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "playlist_delete_with_directory": "Also delete song directories",
+    "playlist_delete_no_directory_hint": "Selected entries have no local song directory; only playlist entries will be removed.",
+    "playlist_move_to_playlist": "Move to playlist",
+    "playlist_picker_search_hint": "Search playlist name",
+    "playlist_picker_empty": "No playlist found",
+    "playlist_picker_current_disabled": "Current playlist cannot be the move target",
     "playlist_list_title": "Playlists",
     "playlist_export": "Export",
     "playlist_all_configured": "All songs are configured",

@@ -134,7 +134,7 @@ development_status:
   epic-9-retrospective: optional
 
   # === E10: 实施质量与可维护性强化 (Post-MVP Hardening) ===
-  epic-10: in-progress
+  epic-10: done
   10-1-bdd-acceptance-criteria-hardening: done
   10-2-large-story-splitting-governance: done
   10-3-cross-epic-dependency-governance: done
@@ -143,5 +143,8 @@ development_status:
   10-6-playlist-incremental-refresh-consistency: done
   10-7-floating-audio-mini-player: done
   10-8-configured-video-missing-direct-download: done
-  10-9-bilibili-bbdown-engine-and-login-entry: backlog
+  10-9-bilibili-bbdown-engine-and-login-entry: done
+  10-10-playlist-multi-select-and-batch-context-actions: done
+  10-11-playlist-detail-cross-playlist-operations: done
+  10-12-playlist-picker-dialog-with-search: done
   epic-10-retrospective: done

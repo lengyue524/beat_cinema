@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/App/theme/app_colors.dart';
@@ -47,6 +48,58 @@ class MiniPlayerDisplayData {
 }
 
 enum PreviewSeekPostAction { keepPaused, resumePlaying }
+
+class PlaylistMutationResult {
+  const PlaylistMutationResult({
+    required this.successCount,
+    required this.failedCount,
+    this.failureSummary,
+  });
+
+  final int successCount;
+  final int failedCount;
+  final String? failureSummary;
+}
+
+typedef AddLevelsToPlaylistHandler = Future<PlaylistMutationResult> Function(
+    List<LevelMetadata> levels);
+typedef DeleteSongDirectoriesHandler = Future<PlaylistMutationResult> Function(
+    List<LevelMetadata> levels);
+
+String buildDeleteSongDirectoriesConfirmMessage(
+  AppLocalizations? l10n,
+  int count,
+) {
+  return l10n?.dialog_delete_song_dirs_content(count) ??
+      '将删除已选 $count 个歌曲目录，此操作不可恢复。';
+}
+
+Future<PlaylistMutationResult> deleteSongDirectoriesOnDisk(
+  List<LevelMetadata> selection,
+) async {
+  var successCount = 0;
+  final failures = <String>[];
+  for (final item in selection) {
+    try {
+      final dir = Directory(item.levelPath);
+      if (!await dir.exists()) {
+        failures.add('${item.songName}: 不存在');
+        continue;
+      }
+      await dir.delete(recursive: true);
+      successCount++;
+    } on FileSystemException catch (e) {
+      failures.add('${item.songName}: ${e.message}');
+    } catch (e) {
+      failures.add('${item.songName}: $e');
+    }
+  }
+  return PlaylistMutationResult(
+    successCount: successCount,
+    failedCount: failures.length,
+    failureSummary: failures.isEmpty ? null : failures.take(3).join('；'),
+  );
+}
 
 @visibleForTesting
 PreviewSeekPostAction resolvePreviewSeekPostAction({required bool wasPlaying}) {
@@ -101,6 +154,10 @@ class LevelListView extends StatefulWidget {
     required this.items,
     this.placeholderBuilder,
     this.autoReloadAfterConfigDownload = true,
+    this.onAddLevelsToPlaylist,
+    this.onDeleteSongDirectories,
+    this.enablePlaylistBatchActions = true,
+    this.onSelectionChanged,
   });
 
   /// Ordered list of items. Each item is either a level or a placeholder.
@@ -109,12 +166,20 @@ class LevelListView extends StatefulWidget {
   /// Builder for non-level placeholder items.
   final Widget Function(BuildContext context, Object? data)? placeholderBuilder;
   final bool autoReloadAfterConfigDownload;
+  final AddLevelsToPlaylistHandler? onAddLevelsToPlaylist;
+  final DeleteSongDirectoriesHandler? onDeleteSongDirectories;
+  final bool enablePlaylistBatchActions;
+  final ValueChanged<List<LevelMetadata>>? onSelectionChanged;
 
   /// Convenience constructor that wraps a plain [LevelMetadata] list.
   LevelListView.fromLevels({
     super.key,
     required List<LevelMetadata> levels,
     this.autoReloadAfterConfigDownload = true,
+    this.onAddLevelsToPlaylist,
+    this.onDeleteSongDirectories,
+    this.enablePlaylistBatchActions = true,
+    this.onSelectionChanged,
   })  : items = levels.map((m) => LevelListItem.level(m)).toList(),
         placeholderBuilder = null;
 
@@ -140,6 +205,8 @@ class _LevelListViewState extends State<LevelListView> {
   String? _playingSongNameCache;
   String? _playingCoverFilePathCache;
   String? _selectedLevelPath;
+  final Set<String> _selectedLevelPaths = <String>{};
+  String? _selectionAnchorLevelPath;
   StreamSubscription<Duration>? _previewPositionSubscription;
   StreamSubscription<Duration>? _previewDurationSubscription;
   StreamSubscription<List<DownloadTask>>? _downloadTaskSubscription;
@@ -148,6 +215,7 @@ class _LevelListViewState extends State<LevelListView> {
   final Map<String, _DirectDownloadSession> _directDownloadSessions = {};
   final Set<String> _pendingConfigDownloadKeys = <String>{};
   final Set<String> _locallyRecoveredVideoLevelPaths = <String>{};
+  final ScrollController _scrollController = ScrollController();
   bool _processingDownloadTasks = false;
   List<DownloadTask>? _queuedDownloadTasks;
   Timer? _reloadDebounceTimer;
@@ -159,9 +227,16 @@ class _LevelListViewState extends State<LevelListView> {
   }
 
   @override
+  void didUpdateWidget(covariant LevelListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _pruneSelectionToVisibleLevels();
+  }
+
+  @override
   void dispose() {
     _downloadTaskSubscription?.cancel();
     _reloadDebounceTimer?.cancel();
+    _scrollController.dispose();
     _disposePreviewPlayer();
     super.dispose();
   }
@@ -572,7 +647,190 @@ class _LevelListViewState extends State<LevelListView> {
   // Context menu
   // ---------------------------------------------------------------------------
 
+  List<LevelMetadata> get _orderedVisibleLevels => [
+        for (final item in widget.items)
+          if (item.isLevel && item.metadata != null) item.metadata!,
+      ];
+
+  List<LevelMetadata> get _selectedLevelsOrdered {
+    final selected = _selectedLevelPaths;
+    if (selected.isEmpty) return const [];
+    return [
+      for (final level in _orderedVisibleLevels)
+        if (selected.contains(level.levelPath)) level,
+    ];
+  }
+
+  void _notifySelectionChanged() {
+    widget.onSelectionChanged?.call(_selectedLevelsOrdered);
+  }
+
+  bool get _isCtrlPressed {
+    final keys = HardwareKeyboard.instance.logicalKeysPressed;
+    return keys.contains(LogicalKeyboardKey.controlLeft) ||
+        keys.contains(LogicalKeyboardKey.controlRight) ||
+        keys.contains(LogicalKeyboardKey.metaLeft) ||
+        keys.contains(LogicalKeyboardKey.metaRight);
+  }
+
+  bool get _isShiftPressed {
+    final keys = HardwareKeyboard.instance.logicalKeysPressed;
+    return keys.contains(LogicalKeyboardKey.shiftLeft) ||
+        keys.contains(LogicalKeyboardKey.shiftRight);
+  }
+
+  void _pruneSelectionToVisibleLevels() {
+    final validPaths = _orderedVisibleLevels.map((e) => e.levelPath).toSet();
+    _selectedLevelPaths.removeWhere((path) => !validPaths.contains(path));
+    if (_selectedLevelPath != null &&
+        !_selectedLevelPaths.contains(_selectedLevelPath)) {
+      _selectedLevelPath = null;
+    }
+    if (_selectionAnchorLevelPath != null &&
+        !validPaths.contains(_selectionAnchorLevelPath)) {
+      _selectionAnchorLevelPath = null;
+    }
+    _notifySelectionChanged();
+  }
+
+  void _clearSelection() {
+    if (_selectedLevelPaths.isEmpty && _selectedLevelPath == null) return;
+    setState(() {
+      _selectedLevelPaths.clear();
+      _selectedLevelPath = null;
+      _selectionAnchorLevelPath = null;
+    });
+    _notifySelectionChanged();
+  }
+
+  void _selectSingle(LevelMetadata meta) {
+    setState(() {
+      _selectedLevelPath = meta.levelPath;
+      _selectionAnchorLevelPath = meta.levelPath;
+      _selectedLevelPaths
+        ..clear()
+        ..add(meta.levelPath);
+    });
+    _notifySelectionChanged();
+  }
+
+  void _toggleSelection(LevelMetadata meta) {
+    setState(() {
+      if (_selectedLevelPaths.contains(meta.levelPath)) {
+        _selectedLevelPaths.remove(meta.levelPath);
+      } else {
+        _selectedLevelPaths.add(meta.levelPath);
+      }
+      _selectedLevelPath =
+          _selectedLevelPaths.isEmpty ? null : _selectedLevelPaths.last;
+      _selectionAnchorLevelPath = meta.levelPath;
+    });
+    _notifySelectionChanged();
+  }
+
+  void _selectRange(LevelMetadata target) {
+    final levels = _orderedVisibleLevels;
+    if (levels.isEmpty) return;
+    final anchorPath = _selectionAnchorLevelPath ?? _selectedLevelPath;
+    if (anchorPath == null || anchorPath.isEmpty) {
+      _selectSingle(target);
+      return;
+    }
+    final anchorIndex = levels.indexWhere((e) => e.levelPath == anchorPath);
+    final targetIndex = levels.indexWhere((e) => e.levelPath == target.levelPath);
+    if (anchorIndex < 0 || targetIndex < 0) {
+      _selectSingle(target);
+      return;
+    }
+    final start = math.min(anchorIndex, targetIndex);
+    final end = math.max(anchorIndex, targetIndex);
+    setState(() {
+      _selectedLevelPaths
+        ..clear()
+        ..addAll(levels.sublist(start, end + 1).map((e) => e.levelPath));
+      _selectedLevelPath = target.levelPath;
+    });
+    _notifySelectionChanged();
+  }
+
+  void _handlePrimaryTap(LevelMetadata meta) {
+    if (_isShiftPressed) {
+      _selectRange(meta);
+      return;
+    }
+    if (_isCtrlPressed) {
+      _toggleSelection(meta);
+      return;
+    }
+    _selectSingle(meta);
+    context.read<PanelCubit>().openPanel(PanelContentType.search, context: meta);
+  }
+
+  void _handleContextMenuRequest(LevelMetadata meta) {
+    if (_selectedLevelPaths.contains(meta.levelPath) &&
+        _selectedLevelPaths.length > 1) {
+      return;
+    }
+    _selectSingle(meta);
+  }
+
+  List<LevelMetadata> _resolveContextSelection(LevelMetadata meta) {
+    if (_selectedLevelPaths.contains(meta.levelPath) &&
+        _selectedLevelPaths.length > 1) {
+      final selected = _selectedLevelPaths;
+      return [
+        for (final level in _orderedVisibleLevels)
+          if (selected.contains(level.levelPath)) level,
+      ];
+    }
+    return [meta];
+  }
+
   List<ContextMenuItem> _buildContextMenu(LevelMetadata meta) {
+    final selection = _resolveContextSelection(meta);
+    if (selection.length > 1) {
+      return _buildBatchContextMenu(selection);
+    }
+    return _buildSingleContextMenu(meta);
+  }
+
+  List<ContextMenuItem> _buildBatchContextMenu(List<LevelMetadata> selection) {
+    final l10n = AppLocalizations.of(context);
+    final selectedCount = selection.length;
+    final items = <ContextMenuItem>[
+      ContextMenuItem(
+        label: l10n?.ctx_selected_count(selectedCount) ?? '已选择 $selectedCount 项',
+        icon: Icons.checklist,
+        enabled: false,
+      ),
+      const ContextMenuItem.divider(),
+    ];
+    if (widget.enablePlaylistBatchActions) {
+      items.addAll([
+        ContextMenuItem(
+          label: l10n?.ctx_add_to_playlist ?? '添加到歌单',
+          icon: Icons.playlist_add,
+          onTap: () => _handleAddToPlaylist(selection),
+        ),
+        ContextMenuItem(
+          label: l10n?.ctx_delete_song_directory ?? '删除歌曲目录',
+          icon: Icons.delete_forever,
+          onTap: () => _confirmDeleteSongDirectories(selection),
+        ),
+        const ContextMenuItem.divider(),
+      ]);
+    }
+    items.add(
+      ContextMenuItem(
+        label: l10n?.ctx_clear_selection ?? '清空选择',
+        icon: Icons.clear_all,
+        onTap: _clearSelection,
+      ),
+    );
+    return items;
+  }
+
+  List<ContextMenuItem> _buildSingleContextMenu(LevelMetadata meta) {
     final l10n = AppLocalizations.of(context);
     final canRedownloadFromConfig =
         _hasConfiguredVideoSource(meta.cinemaConfig) &&
@@ -615,6 +873,18 @@ class _LevelListViewState extends State<LevelListView> {
             .openPanel(PanelContentType.fileInfo, context: meta),
       ),
       const ContextMenuItem.divider(),
+      if (widget.enablePlaylistBatchActions)
+        ContextMenuItem(
+          label: l10n?.ctx_add_to_playlist ?? '添加到歌单',
+          icon: Icons.playlist_add,
+          onTap: () => _handleAddToPlaylist([meta]),
+        ),
+      if (widget.enablePlaylistBatchActions)
+        ContextMenuItem(
+          label: l10n?.ctx_delete_song_directory ?? '删除歌曲目录',
+          icon: Icons.delete_forever,
+          onTap: () => _confirmDeleteSongDirectories([meta]),
+        ),
       ContextMenuItem(
         label: l10n?.ctx_open_folder ?? '打开文件夹',
         icon: Icons.folder_open,
@@ -634,6 +904,115 @@ class _LevelListViewState extends State<LevelListView> {
         ),
       ],
     ];
+  }
+
+  Future<void> _handleAddToPlaylist(List<LevelMetadata> selection) async {
+    final l10n = AppLocalizations.of(context);
+    final handler = widget.onAddLevelsToPlaylist;
+    if (handler == null) {
+      _showSnackBar(
+        l10n?.snack_add_to_playlist_not_ready(selection.length) ??
+            '添加到歌单暂未接入（共 ${selection.length} 项）',
+      );
+      return;
+    }
+    try {
+      final result = await handler(selection);
+      final summary = l10n?.snack_batch_result(
+            result.successCount,
+            result.failedCount,
+          ) ??
+          '操作完成：成功 ${result.successCount} / 失败 ${result.failedCount}';
+      final detail = (result.failureSummary ?? '').trim();
+      _showSnackBar(detail.isEmpty ? summary : '$summary；$detail');
+    } catch (e) {
+      _showSnackBar(
+        l10n?.snack_batch_action_failed(e.toString()) ?? '批量操作失败：$e',
+      );
+    }
+  }
+
+  void _confirmDeleteSongDirectories(List<LevelMetadata> selection) {
+    final l10n = AppLocalizations.of(context);
+    final count = selection.length;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n?.dialog_delete_song_dirs_title ?? '删除歌曲目录？'),
+        content: Text(
+          buildDeleteSongDirectoriesConfirmMessage(l10n, count),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n?.common_cancel ?? '取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              unawaited(_deleteSongDirectories(selection));
+            },
+            child: Text(
+              l10n?.common_delete ?? '删除',
+              style: const TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteSongDirectories(List<LevelMetadata> selection) async {
+    final customHandler = widget.onDeleteSongDirectories;
+    int success;
+    int failed;
+    String? failureSummary;
+    if (customHandler != null) {
+      final result = await customHandler(selection);
+      success = result.successCount;
+      failed = result.failedCount;
+      failureSummary = result.failureSummary;
+    } else {
+      final result = await deleteSongDirectoriesOnDisk(selection);
+      success = result.successCount;
+      failed = result.failedCount;
+      failureSummary = result.failureSummary;
+    }
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final summary = l10n?.snack_batch_result(success, failed) ??
+        '操作完成：成功 $success / 失败 $failed';
+    final preview = (failureSummary ?? '').trim();
+    if (failed > 0 && preview.isNotEmpty) {
+      _showSnackBar('$summary；$preview');
+    } else {
+      _showSnackBar(summary);
+    }
+    setState(() {
+      for (final item in selection) {
+        _selectedLevelPaths.remove(item.levelPath);
+      }
+      if (_selectedLevelPath != null &&
+          !_selectedLevelPaths.contains(_selectedLevelPath)) {
+        _selectedLevelPath = null;
+      }
+      if (_selectionAnchorLevelPath != null &&
+          !_selectedLevelPaths.contains(_selectionAnchorLevelPath)) {
+        _selectionAnchorLevelPath = null;
+      }
+    });
+    _notifySelectionChanged();
+    _refreshAfterSongDirectoriesMutation(selection);
+  }
+
+  void _refreshAfterSongDirectoriesMutation(List<LevelMetadata> selection) {
+    try {
+      if (selection.isEmpty) {
+        return;
+      }
+      final levelPaths = selection.map((e) => e.levelPath).toList();
+      context.read<CustomLevelsBloc>().add(RemoveLevelsEvent(levelPaths));
+    } catch (_) {}
   }
 
   void _confirmDeleteConfig(LevelMetadata meta) {
@@ -677,7 +1056,7 @@ class _LevelListViewState extends State<LevelListView> {
     return LevelListTile(
       metadata: meta,
       videoStatusOverride: effectiveVideoStatus,
-      isSelected: meta.levelPath == _selectedLevelPath,
+      isSelected: _selectedLevelPaths.contains(meta.levelPath),
       isPlayingAudio: _playingLevelPath == meta.levelPath && _previewPlaying,
       onPlayAudio: () => _toggleAudioPreview(meta),
       onVideoPreview: effectiveVideoStatus == VideoConfigStatus.configured
@@ -690,12 +1069,8 @@ class _LevelListViewState extends State<LevelListView> {
       configuredVideoDownloadTooltip:
           l10n?.ctx_download_configured_video ?? '按配置下载视频',
       configuredVideoDownloading: _isConfiguredVideoDownloading(meta),
-      onTap: () {
-        setState(() => _selectedLevelPath = meta.levelPath);
-        context
-            .read<PanelCubit>()
-            .openPanel(PanelContentType.search, context: meta);
-      },
+      onTap: () => _handlePrimaryTap(meta),
+      onContextMenuRequested: () => _handleContextMenuRequest(meta),
       contextMenuItems: _buildContextMenu(meta),
     );
   }
@@ -992,20 +1367,36 @@ class _LevelListViewState extends State<LevelListView> {
     final showMiniPlayer = miniPlayer != null;
     return Stack(
       children: [
-        ListView.builder(
-          padding: EdgeInsets.only(
-            bottom: showMiniPlayer ? 84 : 0,
-          ),
-          itemExtent: 56,
-          itemCount: widget.items.length,
-          itemBuilder: (context, index) {
-            final item = widget.items[index];
-            if (item.isLevel) {
-              return _buildLevelTile(item.metadata!);
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapUp: (details) {
+            final localY = details.localPosition.dy + _scrollController.offset;
+            final tappedIndex = localY ~/ 56;
+            if (tappedIndex < 0 || tappedIndex >= widget.items.length) {
+              _clearSelection();
+              return;
             }
-            return widget.placeholderBuilder?.call(context, item.placeholder) ??
-                const SizedBox.shrink();
+            final tappedItem = widget.items[tappedIndex];
+            if (!tappedItem.isLevel) {
+              _clearSelection();
+            }
           },
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: EdgeInsets.only(
+              bottom: showMiniPlayer ? 84 : 0,
+            ),
+            itemExtent: 56,
+            itemCount: widget.items.length,
+            itemBuilder: (context, index) {
+              final item = widget.items[index];
+              if (item.isLevel) {
+                return _buildLevelTile(item.metadata!);
+              }
+              return widget.placeholderBuilder?.call(context, item.placeholder) ??
+                  const SizedBox.shrink();
+            },
+          ),
         ),
         Positioned(
           left: 0,

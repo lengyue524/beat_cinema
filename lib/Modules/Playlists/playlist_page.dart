@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/App/theme/app_colors.dart';
@@ -6,14 +7,28 @@ import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/widgets/level_list_view.dart';
 import 'package:beat_cinema/Modules/Playlists/bloc/playlist_bloc.dart';
+import 'package:beat_cinema/Modules/Playlists/playlist_cover_candidates.dart';
+import 'package:beat_cinema/Modules/Playlists/widgets/playlist_cover_picker_dialog.dart';
+import 'package:beat_cinema/Modules/Playlists/widgets/playlist_picker_dialog.dart';
 import 'package:beat_cinema/models/level_metadata.dart';
 import 'package:beat_cinema/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+typedef PlaylistCoverPicker = Future<PlaylistCoverPickerResult?> Function(
+  BuildContext context,
+  List<PlaylistCoverCandidate> candidates,
+);
+
 class PlaylistPage extends StatefulWidget {
-  const PlaylistPage({super.key});
+  const PlaylistPage({
+    super.key,
+    this.coverPicker,
+  });
+
+  final PlaylistCoverPicker? coverPicker;
 
   @override
   State<PlaylistPage> createState() => _PlaylistPageState();
@@ -106,6 +121,35 @@ class _PlaylistPageState extends State<PlaylistPage> {
                 .add(DismissPlaylistRebuildNoticeEvent());
           },
         ),
+        BlocListener<PlaylistBloc, PlaylistState>(
+          listenWhen: (previous, current) {
+            if (previous is! PlaylistLoaded || current is! PlaylistLoaded) {
+              return false;
+            }
+            return previous.actionNotice?.serial != current.actionNotice?.serial &&
+                current.actionNotice != null;
+          },
+          listener: (context, state) {
+            final loaded = state as PlaylistLoaded;
+            final notice = loaded.actionNotice;
+            if (notice == null) return;
+            final l10n = AppLocalizations.of(context);
+            final summary = l10n?.snack_batch_result(
+                  notice.successCount,
+                  notice.failedCount,
+                ) ??
+                '操作完成：成功 ${notice.successCount} / 失败 ${notice.failedCount}';
+            final detail = (notice.failureSummary ?? '').trim();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(detail.isEmpty ? summary : '$summary；$detail'),
+                backgroundColor:
+                    notice.failedCount > 0 ? AppColors.error : null,
+              ),
+            );
+            context.read<PlaylistBloc>().add(DismissPlaylistActionNoticeEvent());
+          },
+        ),
       ],
       child:
           BlocBuilder<PlaylistBloc, PlaylistState>(builder: (context, state) {
@@ -126,16 +170,19 @@ class _PlaylistPageState extends State<PlaylistPage> {
           if (state.selectedPlaylist != null) {
             return _PlaylistDetail(
               playlist: state.selectedPlaylist!,
+              allPlaylists: state.playlists,
               filterUnconfigured: state.filterUnconfigured,
               exporting: state.exporting,
               exportProgress: state.exportProgress,
               exportResult: state.exportResult,
+              coverPicker: widget.coverPicker,
             );
           }
           return _PlaylistList(
             playlists: state.playlists,
             scrollController: _playlistListScrollController,
             onRebuildIndex: () => _confirmAndRebuild(context),
+            onCreatePlaylist: () => _createPlaylist(context),
           );
         }
         return const SizedBox.shrink();
@@ -188,6 +235,41 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
     if (confirmed != true || !context.mounted) return;
     context.read<PlaylistBloc>().add(RebuildPlaylistHashIndexEvent());
+  }
+
+  Future<void> _createPlaylist(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    var draftTitle = '';
+    final title = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('新建歌单'),
+          content: TextField(
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: '请输入歌单名称',
+            ),
+            onChanged: (value) => draftTitle = value.trim(),
+            onSubmitted: (value) =>
+                Navigator.of(dialogContext).pop(value.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n?.common_cancel ?? '取消'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(draftTitle),
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+    if (title == null || title.trim().isEmpty || !context.mounted) return;
+    context.read<PlaylistBloc>().add(CreatePlaylistEvent(title: title.trim()));
   }
 
   String _resolveRebuildFailureMessage(
@@ -311,10 +393,12 @@ class _PlaylistList extends StatelessWidget {
     required this.playlists,
     required this.scrollController,
     required this.onRebuildIndex,
+    required this.onCreatePlaylist,
   });
   final List<PlaylistWithStatus> playlists;
   final ScrollController scrollController;
   final VoidCallback onRebuildIndex;
+  final VoidCallback onCreatePlaylist;
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +423,12 @@ class _PlaylistList extends StatelessWidget {
               style:
                   const TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              onPressed: onCreatePlaylist,
+              icon: const Icon(Icons.playlist_add, size: 18),
+              label: const Text('新建歌单'),
+            ),
           ],
         ),
       );
@@ -362,6 +452,13 @@ class _PlaylistList extends StatelessWidget {
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+              ),
+              Tooltip(
+                message: '新建歌单',
+                child: IconButton(
+                  onPressed: onCreatePlaylist,
+                  icon: const Icon(Icons.playlist_add, size: 20),
                 ),
               ),
               Tooltip(
@@ -487,22 +584,28 @@ class _PlaylistTile extends StatelessWidget {
 class _PlaylistDetail extends StatefulWidget {
   const _PlaylistDetail({
     required this.playlist,
+    required this.allPlaylists,
     required this.filterUnconfigured,
     required this.exporting,
     required this.exportProgress,
     required this.exportResult,
+    this.coverPicker,
   });
   final PlaylistWithStatus playlist;
+  final List<PlaylistWithStatus> allPlaylists;
   final bool filterUnconfigured;
   final bool exporting;
   final double exportProgress;
   final ExportResult? exportResult;
+  final PlaylistCoverPicker? coverPicker;
 
   @override
   State<_PlaylistDetail> createState() => _PlaylistDetailState();
 }
 
 class _PlaylistDetailState extends State<_PlaylistDetail> {
+  List<LevelMetadata> _selectedLevels = const [];
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -546,10 +649,48 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
               : LevelListView.fromLevels(
                   levels: matchedLevels,
                   autoReloadAfterConfigDownload: false,
+                  enablePlaylistBatchActions: false,
+                  onSelectionChanged: _handleSelectionChanged,
                 ),
         ),
       ],
     );
+  }
+
+  void _handleSelectionChanged(List<LevelMetadata> levels) {
+    if (!mounted || _sameSelectionByPath(_selectedLevels, levels)) return;
+    final schedulerPhase = WidgetsBinding.instance.schedulerPhase;
+    final shouldDefer = schedulerPhase == SchedulerPhase.persistentCallbacks ||
+        schedulerPhase == SchedulerPhase.transientCallbacks;
+    if (shouldDefer) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _sameSelectionByPath(_selectedLevels, levels)) return;
+        setState(() {
+          _selectedLevels = levels;
+        });
+      });
+      return;
+    }
+    setState(() {
+      _selectedLevels = levels;
+    });
+  }
+
+  bool _sameSelectionByPath(
+    List<LevelMetadata> current,
+    List<LevelMetadata> next,
+  ) {
+    if (current.length != next.length) return false;
+    final currentPaths = current
+        .map((item) => item.levelPath.trim().toLowerCase())
+        .toList(growable: false);
+    final nextPaths = next
+        .map((item) => item.levelPath.trim().toLowerCase())
+        .toList(growable: false);
+    for (var i = 0; i < currentPaths.length; i++) {
+      if (currentPaths[i] != nextPaths[i]) return false;
+    }
+    return true;
   }
 
   Widget _buildMissingSongsSection(
@@ -637,7 +778,16 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      else
+                      else ...[
+                        IconButton(
+                          key: ValueKey('playlist-missing-delete-$index'),
+                          icon: const Icon(Icons.delete_forever, size: 18),
+                          tooltip: l10n?.common_delete ?? 'Delete',
+                          onPressed: () => _confirmDeleteSongs(
+                            context,
+                            songs: [item],
+                          ),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.download, size: 18),
                           tooltip: 'Download',
@@ -645,6 +795,7 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
                               .read<PlaylistBloc>()
                               .add(DownloadMissingSongEvent(item)),
                         ),
+                      ],
                     ],
                   ),
                 );
@@ -727,6 +878,7 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
 
   Widget _buildHeader(BuildContext context, AppLocalizations? l10n) {
     final total = widget.playlist.songs.length;
+    final selectedCount = _selectedLevels.length;
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),
@@ -759,7 +911,55 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
                   style: const TextStyle(
                       color: AppColors.textSecondary, fontSize: 12),
                 ),
+                if (selectedCount > 0)
+                  Text(
+                    l10n?.ctx_selected_count(selectedCount) ??
+                        '已选择 $selectedCount 项',
+                    style: const TextStyle(
+                      color: AppColors.brandPurple,
+                      fontSize: 12,
+                    ),
+                  ),
               ],
+            ),
+          ),
+          Tooltip(
+            message: '设置歌单封面',
+            child: IconButton(
+              icon: const Icon(Icons.image, size: 20),
+              onPressed: () => _setPlaylistCoverFromSong(context),
+            ),
+          ),
+          Tooltip(
+            message: l10n?.ctx_add_to_playlist ?? '添加到歌单',
+            child: IconButton(
+              icon: const Icon(Icons.playlist_add, size: 20),
+              onPressed: selectedCount == 0
+                  ? null
+                  : () => _onAddOrMove(
+                        context,
+                        mode: PlaylistMutationMode.add,
+                      ),
+            ),
+          ),
+          Tooltip(
+            message: l10n?.playlist_move_to_playlist ?? '移动到歌单',
+            child: IconButton(
+              icon: const Icon(Icons.drive_file_move, size: 20),
+              onPressed: selectedCount == 0
+                  ? null
+                  : () => _onAddOrMove(
+                        context,
+                        mode: PlaylistMutationMode.move,
+                      ),
+            ),
+          ),
+          Tooltip(
+            message: l10n?.ctx_delete_song_directory ?? '删除歌曲目录',
+            child: IconButton(
+              icon: const Icon(Icons.delete_forever, size: 20),
+              onPressed:
+                  selectedCount == 0 ? null : () => _confirmDeleteSelection(context),
             ),
           ),
           Tooltip(
@@ -794,6 +994,191 @@ class _PlaylistDetailState extends State<_PlaylistDetail> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _setPlaylistCoverFromSong(BuildContext context) async {
+    final candidates = buildPlaylistCoverCandidates(
+      widget.playlist.songs,
+      fileExists: (path) => File(path).existsSync(),
+    );
+    if (!context.mounted) return;
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('未找到可用封面图片')),
+      );
+      return;
+    }
+    final picker = widget.coverPicker ??
+        ((
+          BuildContext ctx,
+          List<PlaylistCoverCandidate> items,
+        ) =>
+            PlaylistCoverPickerDialog.show(ctx, candidates: items));
+    final picked = await picker(context, candidates);
+    if (picked == null || !context.mounted) return;
+    if (picked.clearRequested) {
+      context.read<PlaylistBloc>().add(
+            UpdatePlaylistCoverEvent(
+              playlistPath: widget.playlist.info.filePath,
+              imageBase64: null,
+            ),
+          );
+      return;
+    }
+    try {
+      final bytes = await File(picked.filePath!).readAsBytes();
+      if (!context.mounted) return;
+      context.read<PlaylistBloc>().add(
+            UpdatePlaylistCoverEvent(
+              playlistPath: widget.playlist.info.filePath,
+              imageBase64: 'data:image/png;base64,${base64Encode(bytes)}',
+            ),
+          );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('读取封面失败：$e')),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteSelection(BuildContext context) async {
+    final selectedSongs = _selectedSongsForCurrentSelection();
+    await _confirmDeleteSongs(
+      context,
+      songs: selectedSongs,
+      selectedLevelPaths: _selectedLevels.map((e) => e.levelPath).toList(),
+    );
+  }
+
+  Future<void> _confirmDeleteSongs(
+    BuildContext context, {
+    required List<PlaylistSongWithStatus> songs,
+    List<String> selectedLevelPaths = const [],
+  }) async {
+    if (songs.isEmpty) return;
+    final l10n = AppLocalizations.of(context);
+    var deleteSongDirectories = false;
+    final canDeleteDirectory = songs.any((song) => song.matchedLevel != null);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(l10n?.playlist_delete_title ?? '删除歌单条目'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n?.playlist_delete_content(songs.length) ??
+                        '将删除已选 ${songs.length} 个歌单条目。',
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  SwitchListTile(
+                    value: canDeleteDirectory ? deleteSongDirectories : false,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n?.playlist_delete_with_directory ?? '同步删除歌曲目录'),
+                    onChanged: canDeleteDirectory
+                        ? (value) {
+                            setState(() {
+                              deleteSongDirectories = value;
+                            });
+                          }
+                        : null,
+                  ),
+                  if (!canDeleteDirectory)
+                    Text(
+                      l10n?.playlist_delete_no_directory_hint ??
+                          '当前条目未匹配本地歌曲目录，仅删除歌单项。',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(l10n?.common_cancel ?? '取消'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(l10n?.common_delete ?? '删除'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted || songs.isEmpty) return;
+    final identities = songs.map(_songIdentity).toList();
+    context.read<PlaylistBloc>().add(
+          DeletePlaylistSongsEvent(
+            levelPaths: selectedLevelPaths,
+            songIdentities: identities,
+            deleteSongDirectories: canDeleteDirectory && deleteSongDirectories,
+          ),
+        );
+    setState(() {
+      _selectedLevels = const [];
+    });
+  }
+
+  List<PlaylistSongWithStatus> _selectedSongsForCurrentSelection() {
+    if (_selectedLevels.isEmpty) return const [];
+    final selectedPaths =
+        _selectedLevels.map((e) => e.levelPath.trim().toLowerCase()).toSet();
+    return widget.playlist.songs.where((song) {
+      final path = song.matchedLevel?.levelPath.trim().toLowerCase() ?? '';
+      return path.isNotEmpty && selectedPaths.contains(path);
+    }).toList(growable: false);
+  }
+
+  String _songIdentity(PlaylistSongWithStatus status) {
+    final song = status.song;
+    final key = song.key.trim().toLowerCase();
+    final hash = song.hash.trim().toLowerCase();
+    return '$key|$hash';
+  }
+
+  Future<void> _onAddOrMove(
+    BuildContext context, {
+    required PlaylistMutationMode mode,
+  }) async {
+    final targetPlaylistPath =
+        await _pickTargetPlaylistPath(context, mode: mode);
+    if (targetPlaylistPath == null ||
+        targetPlaylistPath.isEmpty ||
+        !context.mounted ||
+        _selectedLevels.isEmpty) {
+      return;
+    }
+    context.read<PlaylistBloc>().add(
+          MutatePlaylistSongsEvent(
+            levelPaths: _selectedLevels.map((e) => e.levelPath).toList(),
+            targetPlaylistPath: targetPlaylistPath,
+            mode: mode,
+          ),
+        );
+    setState(() {
+      _selectedLevels = const [];
+    });
+  }
+
+  Future<String?> _pickTargetPlaylistPath(
+    BuildContext context, {
+    required PlaylistMutationMode mode,
+  }) async {
+    return PlaylistPickerDialog.show(
+      context,
+      playlists: widget.allPlaylists,
+      mode: mode,
+      currentPlaylistPath: widget.playlist.info.filePath,
     );
   }
 

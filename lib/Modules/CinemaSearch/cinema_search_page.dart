@@ -109,19 +109,24 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
     if (prefersBbDown) {
       final installed = await BbDownService.isInstalled(appBloc.beatSaberPath!);
       if (!installed) {
-        log.w(
-          '[CinemaSearch] play engine=ytdlp platform=bilibili '
-          'reason=bbdown_not_installed',
-        );
-      } else {
-        log.i('[CinemaSearch] play engine=bbdown platform=bilibili');
-        await _playInAppByBbDown(
-          appBloc: appBloc,
-          rawUrl: rawUrl,
-          resolvedTitle: resolvedTitle,
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n?.error_bbdown_not_found ?? '未找到 BBDown，请先将 BBDown.exe 放入 Libs 目录',
+            ),
+          ),
         );
         return;
       }
+      log.i('[CinemaSearch] play engine=bbdown platform=bilibili');
+      await _playInAppByBbDown(
+        appBloc: appBloc,
+        rawUrl: rawUrl,
+        resolvedTitle: resolvedTitle,
+      );
+      return;
     }
     if (_resolvingPlayUrls.contains(rawUrl)) return;
     setState(() => _resolvingPlayUrls.add(rawUrl));
@@ -524,6 +529,48 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
                     );
                   },
                 ),
+                const SizedBox(height: AppSpacing.xs),
+                BlocBuilder<AppBloc, AppState>(
+                  builder: (context, state) {
+                    if (state is! AppLaunchComplated ||
+                        state.cinemaSearchPlatform !=
+                            CinemaSearchPlatform.bilibili ||
+                        state.beatSaberPath == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return FutureBuilder<bool>(
+                      future: BbDownService.isInstalled(state.beatSaberPath!),
+                      builder: (context, snapshot) {
+                        if (snapshot.data == true) {
+                          return const SizedBox.shrink();
+                        }
+                        final l10n = AppLocalizations.of(context);
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.warning.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Text(
+                            l10n?.search_bbdown_missing_fallback ??
+                                '未检测到 BBDown，请在设置页面下载并登录后再使用 Bilibili 搜索。',
+                            style: const TextStyle(
+                              color: AppColors.warning,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
@@ -591,6 +638,19 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
           width: 28,
           height: 28,
           child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (state is CinemaSearchFailure) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Text(
+            _resolveSearchFailureReason(state.errorKey, l10n),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
         ),
       );
     }
@@ -842,6 +902,21 @@ class _CinemaSearchPageState extends State<CinemaSearchPage> {
     }
 
     return const SizedBox.shrink();
+  }
+
+  String _resolveSearchFailureReason(String errorKey, AppLocalizations? l10n) {
+    switch (errorKey) {
+      case 'error_bbdown_not_found':
+        return l10n?.search_bbdown_missing_fallback ??
+            '未检测到 BBDown，请在设置页面下载并登录后再使用 Bilibili 搜索。';
+      case 'error_bbdown_login_required':
+        return l10n?.error_bbdown_login_required ??
+            'Bilibili 资源需要登录，请先在设置中执行 BBDown 登录';
+      case 'error_bbdown_network':
+        return l10n?.error_bbdown_network ?? 'BBDown 处理失败，请检查网络后重试';
+      default:
+        return l10n?.error_bbdown_unknown ?? 'BBDown 处理失败';
+    }
   }
 
   bool _isAlreadyDownloaded(String videoUrl) {

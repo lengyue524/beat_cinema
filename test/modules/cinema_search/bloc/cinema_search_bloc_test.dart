@@ -1,4 +1,5 @@
 import 'package:beat_cinema/Modules/CinemaSearch/bloc/cinema_search_bloc.dart';
+import 'package:beat_cinema/Core/errors/app_error.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -47,6 +48,36 @@ void main() {
         key,
         equals('youtube|20|hello world|http://127.0.0.1:7890'),
       );
+    });
+  });
+
+  group('CinemaSearchBloc bilibili routing policy', () {
+    test('yt-dlp fallback is disabled on bilibili', () {
+      expect(
+        CinemaSearchBloc.isYtDlpFallbackAllowed(CinemaSearchPlatform.bilibili),
+        isFalse,
+      );
+      expect(
+        CinemaSearchBloc.isYtDlpFallbackAllowed(CinemaSearchPlatform.youtube),
+        isTrue,
+      );
+    });
+
+    test('maps app error key for bilibili search failures', () {
+      final key = CinemaSearchBloc.mapBilibiliSearchErrorKey(
+        const AppError(
+          type: AppErrorType.network,
+          userMessageKey: 'error_bbdown_login_required',
+        ),
+      );
+      expect(key, 'error_bbdown_login_required');
+    });
+
+    test('maps generic failure text to network key', () {
+      final key = CinemaSearchBloc.mapBilibiliSearchErrorKey(
+        Exception('socket timeout'),
+      );
+      expect(key, 'error_bbdown_network');
     });
   });
 }

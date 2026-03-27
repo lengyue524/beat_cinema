@@ -36,6 +36,7 @@ final class PlaylistLoaded extends PlaylistState {
   final double exportProgress;
   final ExportResult? exportResult;
   final PlaylistRebuildNotice? rebuildNotice;
+  final PlaylistActionNotice? actionNotice;
 
   PlaylistLoaded({
     required this.playlists,
@@ -45,10 +46,27 @@ final class PlaylistLoaded extends PlaylistState {
     this.exportProgress = 0,
     this.exportResult,
     this.rebuildNotice,
+    this.actionNotice,
   });
 
   PlaylistWithStatus? get selectedPlaylist =>
       selectedIndex != null ? playlists[selectedIndex!] : null;
+}
+
+class PlaylistActionNotice {
+  const PlaylistActionNotice({
+    required this.serial,
+    required this.successCount,
+    required this.failedCount,
+    this.failureSummary,
+    this.type = 'mutation',
+  });
+
+  final int serial;
+  final int successCount;
+  final int failedCount;
+  final String? failureSummary;
+  final String type;
 }
 
 class PlaylistRebuildNotice {

@@ -24,6 +24,7 @@ class LevelListTile extends StatelessWidget {
     this.configuredVideoDownloadTooltip,
     this.configuredVideoDownloading = false,
     this.videoStatusOverride,
+    this.onContextMenuRequested,
   });
 
   final LevelMetadata metadata;
@@ -38,14 +39,17 @@ class LevelListTile extends StatelessWidget {
   final String? configuredVideoDownloadTooltip;
   final bool configuredVideoDownloading;
   final VideoConfigStatus? videoStatusOverride;
+  final VoidCallback? onContextMenuRequested;
 
   @override
   Widget build(BuildContext context) {
     final effectiveVideoStatus = videoStatusOverride ?? metadata.videoStatus;
     return ContextMenuRegion(
       menuItems: contextMenuItems,
+      onBeforeOpen: onContextMenuRequested,
       child: Semantics(
         label: '${metadata.songName} by ${metadata.songAuthorName}',
+        selected: isSelected,
         child: Opacity(
           opacity: enabled ? 1.0 : 0.38,
           child: Material(
@@ -55,6 +59,9 @@ class LevelListTile extends StatelessWidget {
               hoverColor: AppColors.surface3,
               splashColor: AppColors.surface4,
               child: Container(
+                  key: isSelected
+                      ? ValueKey('level-tile-selected-${metadata.levelPath}')
+                      : ValueKey('level-tile-${metadata.levelPath}'),
                 height: 56,
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 decoration: BoxDecoration(

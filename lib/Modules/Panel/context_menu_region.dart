@@ -29,16 +29,20 @@ class ContextMenuRegion extends StatelessWidget {
     super.key,
     required this.child,
     required this.menuItems,
+    this.onBeforeOpen,
   });
 
   final Widget child;
   final List<ContextMenuItem> menuItems;
+  final VoidCallback? onBeforeOpen;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onSecondaryTapUp: (details) =>
-          _showContextMenu(context, details.globalPosition),
+      onSecondaryTapUp: (details) {
+        onBeforeOpen?.call();
+        _showContextMenu(context, details.globalPosition);
+      },
       child: child,
     );
   }

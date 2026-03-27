@@ -386,6 +386,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ctx_copy_name => '复制歌名';
 
   @override
+  String get ctx_add_to_playlist => '添加到歌单';
+
+  @override
+  String get ctx_delete_song_directory => '删除歌曲目录';
+
+  @override
+  String get ctx_clear_selection => '清空选择';
+
+  @override
+  String ctx_selected_count(int count) {
+    return '已选择 $count 项';
+  }
+
+  @override
   String get ctx_delete_config => '删除配置';
 
   @override
@@ -409,6 +423,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get common_delete => '删除';
+
+  @override
+  String get dialog_delete_song_dirs_title => '删除歌曲目录？';
+
+  @override
+  String dialog_delete_song_dirs_content(int count) {
+    return '将删除已选 $count 个歌曲目录，此操作不可恢复。';
+  }
 
   @override
   String get mini_player_stop => '停止播放';
@@ -435,6 +457,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get snack_video_download_enqueued => '已加入下载队列';
 
   @override
+  String snack_add_to_playlist_not_ready(int count) {
+    return '添加到歌单暂未接入（共 $count 项）';
+  }
+
+  @override
+  String snack_batch_result(int success, int failed) {
+    return '操作完成：成功 $success / 失败 $failed';
+  }
+
+  @override
+  String snack_batch_action_failed(String error) {
+    return '批量操作失败：$error';
+  }
+
+  @override
   String get search_tooltip_download => '下载';
 
   @override
@@ -448,7 +485,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get search_bbdown_missing_fallback =>
-      '未检测到 BBDown，当前已回退使用 yt-dlp。请安装 BBDown 以启用 Bilibili 专用引擎。';
+      '未检测到 BBDown，请在设置页面下载并登录后再使用 Bilibili 搜索。';
 
   @override
   String get search_tooltip_play => '应用内播放';
@@ -514,6 +551,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get playlist_filter_unconfigured => '仅显示未配置';
+
+  @override
+  String get playlist_delete_title => '删除歌单条目';
+
+  @override
+  String playlist_delete_content(int count) {
+    return '将删除已选 $count 个歌单条目。';
+  }
+
+  @override
+  String get playlist_delete_with_directory => '同步删除歌曲目录';
+
+  @override
+  String get playlist_delete_no_directory_hint => '当前条目未匹配本地歌曲目录，仅删除歌单项。';
+
+  @override
+  String get playlist_move_to_playlist => '移动到歌单';
+
+  @override
+  String get playlist_picker_search_hint => '搜索歌单名称';
+
+  @override
+  String get playlist_picker_empty => '未找到可选歌单';
+
+  @override
+  String get playlist_picker_current_disabled => '当前歌单不可作为移动目标';
 
   @override
   String get playlist_list_title => '播放列表';

@@ -13,6 +13,11 @@ class RefreshSingleLevelEvent extends CustomLevelsEvent {
   final String levelPath;
 }
 
+class RemoveLevelsEvent extends CustomLevelsEvent {
+  RemoveLevelsEvent(this.levelPaths);
+  final List<String> levelPaths;
+}
+
 class LoadCachedCustomLevelsEvent extends CustomLevelsEvent {}
 
 class SearchQueryChanged extends CustomLevelsEvent {

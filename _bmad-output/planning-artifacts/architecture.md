@@ -455,3 +455,36 @@ beat_cinema/
 **整体评估：✅ 架构通过验证**
 
 架构文档完整覆盖了 PRD 的所有需求，与现有代码库约束兼容，关键风险点均有缓解策略。3 个遗留问题不阻塞 Epic 规划和开发启动。
+
+---
+
+## Addendum 2026-03-22: Playlist 批量操作与歌单选择器
+
+### Scope
+
+- 歌曲列表新增多选与批量右键能力
+- Playlist 详情新增删除/添加/移动跨歌单操作
+- 新增可搜索的通用歌单选择弹窗
+
+### Architecture Adjustments
+
+1. **Selection State Model**
+   - 在列表层引入 `selectedLevelPaths: Set<String>`，支持单选与多选共存策略
+   - 多选状态与当前过滤/排序状态解耦，避免列表重排导致选择错乱
+
+2. **Playlist Mutation Service Boundary**
+   - 新增或扩展 Playlist 领域服务，统一处理：
+     - 添加到歌单
+     - 从歌单删除
+     - 在歌单间移动
+   - 写入策略沿用原子写入原则，防止 .bplist 半写入损坏
+
+3. **Delete Safety Strategy**
+   - 删除操作区分两层：
+     - 仅删除歌单条目
+     - 同步删除歌曲目录
+   - 文件删除失败时不得破坏歌单数据一致性，需返回部分成功结果并反馈失败清单
+
+4. **Reusable Playlist Picker**
+   - 歌单选择器作为可复用组件，服务于“添加到歌单”和“移动到歌单”
+   - 支持搜索过滤、禁用当前歌单目标、空状态提示

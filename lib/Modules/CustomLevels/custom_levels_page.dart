@@ -4,6 +4,9 @@ import 'package:beat_cinema/Modules/CustomLevels/bloc/custom_levels_bloc.dart';
 import 'package:beat_cinema/Modules/CustomLevels/widgets/level_list_view.dart';
 import 'package:beat_cinema/Modules/CustomLevels/widgets/skeleton_list.dart';
 import 'package:beat_cinema/Modules/CustomLevels/widgets/summary_bar.dart';
+import 'package:beat_cinema/Modules/Playlists/bloc/playlist_bloc.dart';
+import 'package:beat_cinema/Modules/Playlists/widgets/playlist_picker_dialog.dart';
+import 'package:beat_cinema/Services/services/playlist_parse_service.dart';
 import 'package:beat_cinema/models/level_metadata.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -150,10 +153,75 @@ class _CustomLevelsPageState extends State<CustomLevelsPage> {
                     key: const ValueKey('list'),
                     levels: levels,
                     autoReloadAfterConfigDownload: false,
+                    onAddLevelsToPlaylist: _handleAddLevelsToPlaylist,
                   ),
           ),
         ),
       ],
+    );
+  }
+
+  Future<PlaylistMutationResult> _handleAddLevelsToPlaylist(
+    List<LevelMetadata> levels,
+  ) async {
+    if (levels.isEmpty) {
+      return const PlaylistMutationResult(successCount: 0, failedCount: 0);
+    }
+    final l10n = AppLocalizations.of(context);
+    final appState = context.read<AppBloc>().state;
+    if (appState is! AppLaunchComplated || appState.beatSaberPath == null) {
+      return PlaylistMutationResult(
+        successCount: 0,
+        failedCount: levels.length,
+        failureSummary: l10n?.set_game_path_tips ?? '请先设置游戏路径',
+      );
+    }
+    final playlistBloc = context.read<PlaylistBloc>();
+    var candidates = <PlaylistWithStatus>[];
+    final playlistState = playlistBloc.state;
+    if (playlistState is PlaylistLoaded && playlistState.playlists.isNotEmpty) {
+      candidates = playlistState.playlists;
+    } else {
+      playlistBloc.add(LoadPlaylistsEvent(appState.beatSaberPath!, levels));
+      final parsed = await PlaylistParseService().parseAll(appState.beatSaberPath!);
+      candidates = parsed
+          .map(
+            (info) => PlaylistWithStatus(
+              info: info,
+              songs: const [],
+              matchedCount: 0,
+              configuredCount: 0,
+            ),
+          )
+          .toList(growable: false);
+    }
+    if (!mounted) {
+      return const PlaylistMutationResult(successCount: 0, failedCount: 0);
+    }
+    if (candidates.isEmpty) {
+      return PlaylistMutationResult(
+        successCount: 0,
+        failedCount: levels.length,
+        failureSummary: l10n?.playlist_empty ?? '未找到歌单',
+      );
+    }
+    final targetPath = await PlaylistPickerDialog.show(
+      context,
+      playlists: candidates,
+      mode: PlaylistMutationMode.add,
+    );
+    if (targetPath == null || targetPath.isEmpty) {
+      return const PlaylistMutationResult(successCount: 0, failedCount: 0);
+    }
+    playlistBloc.add(
+      AddLevelsToPlaylistEvent(
+        levels: levels,
+        targetPlaylistPath: targetPath,
+      ),
+    );
+    return PlaylistMutationResult(
+      successCount: levels.length,
+      failedCount: 0,
     );
   }
 

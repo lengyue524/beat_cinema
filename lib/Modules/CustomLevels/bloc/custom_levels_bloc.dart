@@ -31,6 +31,7 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
         super(CustomLevelsInitial()) {
     on<ReloadCustomLevelsEvent>(_onReload);
     on<RefreshSingleLevelEvent>(_onRefreshSingleLevel);
+    on<RemoveLevelsEvent>(_onRemoveLevels);
     on<LoadCachedCustomLevelsEvent>(_onLoadCached);
     on<SearchQueryChanged>(_onSearchChanged);
     on<FilterChanged>(_onFilterChanged);
@@ -214,6 +215,26 @@ class CustomLevelsBloc extends Bloc<CustomLevelsEvent, CustomLevelsState> {
     }
     _allLevels = next;
     unawaited(_cacheService.putAll([parsed]));
+    emit(_buildLoadedState());
+  }
+
+  Future<void> _onRemoveLevels(
+    RemoveLevelsEvent event,
+    Emitter<CustomLevelsState> emit,
+  ) async {
+    if (event.levelPaths.isEmpty) return;
+    final normalized = event.levelPaths
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (normalized.isEmpty) return;
+
+    _allLevels = _allLevels
+        .where((item) => !normalized.contains(item.levelPath.trim().toLowerCase()))
+        .toList();
+    for (final levelPath in event.levelPaths) {
+      await _cacheService.invalidate(levelPath);
+    }
     emit(_buildLoadedState());
   }
 

@@ -21,16 +21,15 @@ class AppLifecycleService {
   }
 
   Future<void> _killChildProcesses() async {
-    try {
-      final result = await Process.run(
-        'taskkill',
-        ['/F', '/IM', Constants.ytDlpName],
-      );
-      if (result.exitCode == 0) {
-        // yt-dlp processes terminated
+    for (final processName in [Constants.ytDlpName, Constants.bbDownName]) {
+      try {
+        await Process.run(
+          'taskkill',
+          ['/F', '/IM', processName],
+        );
+      } catch (_) {
+        // taskkill not available or no processes to kill
       }
-    } catch (_) {
-      // taskkill not available or no processes to kill
     }
   }
 }

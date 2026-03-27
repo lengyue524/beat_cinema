@@ -85,6 +85,111 @@ void main() {
         .length;
     expect(rebuildCount, greaterThan(0));
   });
+
+  testWidgets('playlist action notice shows mutation summary snackbar',
+      (tester) async {
+    final appBloc = AppBloc();
+    final customLevelsBloc = CustomLevelsBloc();
+    final playlistBloc = _TrackingPlaylistBloc(
+      parseService: _FakePlaylistParseService(),
+    );
+    playlistBloc.seedLoaded();
+
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AppBloc>.value(value: appBloc),
+          BlocProvider<CustomLevelsBloc>.value(value: customLevelsBloc),
+          BlocProvider<PlaylistBloc>.value(value: playlistBloc),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: PlaylistPage()),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    playlistBloc.emitActionNoticeForTest();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('成功 2 / 失败 1'), findsOneWidget);
+  });
+
+  testWidgets('playlist delete dialog toggles directory switch and dispatches',
+      (tester) async {
+    final appBloc = AppBloc();
+    final customLevelsBloc = CustomLevelsBloc();
+    final playlistBloc = _TrackingPlaylistBloc(
+      parseService: _FakePlaylistParseService(),
+    );
+    playlistBloc.seedMissingDetailLoaded();
+
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AppBloc>.value(value: appBloc),
+          BlocProvider<CustomLevelsBloc>.value(value: customLevelsBloc),
+          BlocProvider<PlaylistBloc>.value(value: playlistBloc),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: PlaylistPage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('playlist-missing-delete-0')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SwitchListTile), findsOneWidget);
+    final switchTile = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+    expect(switchTile.onChanged, isNull);
+    await tester.tap(find.text('删除'));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    final deleteEvent = playlistBloc.recordedEvents
+        .whereType<DeletePlaylistSongsEvent>()
+        .last;
+    expect(deleteEvent.deleteSongDirectories, isFalse);
+    expect(deleteEvent.levelPaths, isEmpty);
+    expect(deleteEvent.songIdentities, isNotEmpty);
+  });
+
+  testWidgets('create playlist dialog dispatches CreatePlaylistEvent',
+      (tester) async {
+    final appBloc = AppBloc();
+    final customLevelsBloc = CustomLevelsBloc();
+    final playlistBloc = _TrackingPlaylistBloc(
+      parseService: _FakePlaylistParseService(),
+    );
+    playlistBloc.seedLoaded();
+
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AppBloc>.value(value: appBloc),
+          BlocProvider<CustomLevelsBloc>.value(value: customLevelsBloc),
+          BlocProvider<PlaylistBloc>.value(value: playlistBloc),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: PlaylistPage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.playlist_add));
+    await tester.pumpAndSettle();
+    expect(find.text('新建歌单'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Road Trip');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    final createEvent = playlistBloc.recordedEvents.whereType<CreatePlaylistEvent>().last;
+    expect(createEvent.title, 'Road Trip');
+  });
+
 }
 
 class _TrackingPlaylistBloc extends PlaylistBloc {
@@ -139,6 +244,65 @@ class _TrackingPlaylistBloc extends PlaylistBloc {
           serial: _noticeSerial,
           detail: 'boom',
         ),
+      ),
+    );
+  }
+
+  void emitActionNoticeForTest() {
+    _noticeSerial++;
+    emit(
+      PlaylistLoaded(
+        playlists: const <PlaylistWithStatus>[
+          PlaylistWithStatus(
+            info: PlaylistInfo(
+              filePath: r'D:\BeatSaber\Playlists\demo.bplist',
+              title: 'Demo Playlist',
+              songs: <PlaylistSong>[
+                PlaylistSong(hash: 'abc123', songName: 'Song A'),
+              ],
+            ),
+            songs: <PlaylistSongWithStatus>[],
+            matchedCount: 0,
+            configuredCount: 0,
+          ),
+        ],
+        actionNotice: const PlaylistActionNotice(
+          serial: 1,
+          successCount: 2,
+          failedCount: 1,
+          failureSummary: 'x',
+        ),
+      ),
+    );
+  }
+
+  void seedMissingDetailLoaded() {
+    const playlistPath = r'D:\BeatSaber\Playlists\demo.bplist';
+    emit(
+      PlaylistLoaded(
+        playlists: [
+          PlaylistWithStatus(
+            info: const PlaylistInfo(
+              filePath: playlistPath,
+              title: 'Demo Playlist',
+              songs: <PlaylistSong>[
+                PlaylistSong(hash: 'missing_hash', key: 'missing_key', songName: 'Song Missing'),
+              ],
+            ),
+            songs: [
+              PlaylistSongWithStatus(
+                song: const PlaylistSong(
+                  hash: 'missing_hash',
+                  key: 'missing_key',
+                  songName: 'Song Missing',
+                ),
+              ),
+            ],
+            matchedCount: 0,
+            configuredCount: 0,
+          ),
+        ],
+        selectedIndex: 0,
       ),
     );
   }

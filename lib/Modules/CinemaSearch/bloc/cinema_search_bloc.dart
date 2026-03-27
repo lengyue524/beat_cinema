@@ -6,6 +6,7 @@ import 'dart:isolate';
 import 'package:beat_cinema/App/bloc/app_bloc.dart';
 import 'package:beat_cinema/Common/log.dart';
 import 'package:beat_cinema/Common/constants.dart';
+import 'package:beat_cinema/Core/errors/app_error.dart';
 import 'package:beat_cinema/Services/repositories/video_repository.dart';
 import 'package:beat_cinema/Services/services/bbdown_service.dart';
 import 'package:beat_cinema/Services/services/proxy_service.dart';
@@ -97,10 +98,16 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
       'proxyMode=${appBloc.proxyMode.name} '
       'proxyApplied=${proxyUrl != null && proxyUrl.isNotEmpty}',
     );
-    final useBbDown = appBloc.cinemaSearchPlatform == CinemaSearchPlatform.bilibili &&
-        await BbDownService.isInstalled(appBloc.beatSaberPath!);
-    if (!_isRequestActive(requestId)) return;
-    if (useBbDown) {
+    if (appBloc.cinemaSearchPlatform == CinemaSearchPlatform.bilibili) {
+      final installed = await BbDownService.isInstalled(appBloc.beatSaberPath!);
+      if (!_isRequestActive(requestId)) return;
+      if (!installed) {
+        log.w(
+          '[CinemaSearchBloc] bilibili search skipped reason=bbdown_not_installed',
+        );
+        emit(CinemaSearchFailure(errorKey: 'error_bbdown_not_found'));
+        return;
+      }
       log.i('[CinemaSearchBloc] search engine=bbdown platform=bilibili');
       try {
         final service = BbDownService(
@@ -116,8 +123,7 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
           return;
         }
         log.w(
-          '[CinemaSearchBloc] bbdown empty result, retry once '
-          'query="$normalizedText"',
+          '[CinemaSearchBloc] bbdown empty result, retry once query="$normalizedText"',
         );
         final retryResults = await service.search(normalizedText, count: count);
         if (!_isRequestActive(requestId)) return;
@@ -126,28 +132,19 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
           emit(CinemaSearchLoaded(videoInfos: List.unmodifiable(retryResults)));
           return;
         }
-        log.w(
-          '[CinemaSearchBloc] bbdown retry empty, fallback to ytdlp '
-          'query="$normalizedText"',
-        );
+        emit(CinemaSearchLoaded(videoInfos: const []));
       } catch (e, st) {
         log.w(
-            '[CinemaSearchBloc] bilibili search failed query="$normalizedText"',
-            e,
-            st);
-        if (!_isRequestActive(requestId)) return;
-        log.w(
-          '[CinemaSearchBloc] bbdown failed, fallback to ytdlp '
-          'query="$normalizedText"',
+          '[CinemaSearchBloc] bilibili search failed query="$normalizedText"',
+          e,
+          st,
         );
+        if (!_isRequestActive(requestId)) return;
+        emit(CinemaSearchFailure(errorKey: mapBilibiliSearchErrorKey(e)));
       }
+      return;
     }
-    if (appBloc.cinemaSearchPlatform == CinemaSearchPlatform.bilibili) {
-      final reason = useBbDown ? 'bbdown_empty_or_failed' : 'bbdown_not_installed';
-      log.w('[CinemaSearchBloc] search engine=ytdlp platform=bilibili reason=$reason');
-    } else {
-      log.i('[CinemaSearchBloc] search engine=ytdlp platform=youtube');
-    }
+    log.i('[CinemaSearchBloc] search engine=ytdlp platform=youtube');
     final videoInfos = await _searchWithYtDlpIsolate(
       text: normalizedText,
       count: count,
@@ -454,6 +451,28 @@ class CinemaSearchBloc extends Bloc<CinemaSearchEvent, CinemaSearchState> {
     }
     args.addAll([searchStr, '-j']);
     return args;
+  }
+
+  @visibleForTesting
+  static bool isYtDlpFallbackAllowed(CinemaSearchPlatform platform) {
+    return platform == CinemaSearchPlatform.youtube;
+  }
+
+  @visibleForTesting
+  static String mapBilibiliSearchErrorKey(Object error) {
+    if (error is AppError && error.userMessageKey.trim().isNotEmpty) {
+      return error.userMessageKey.trim();
+    }
+    final text = error.toString().toLowerCase();
+    if (text.contains('login') || text.contains('sessdata')) {
+      return 'error_bbdown_login_required';
+    }
+    if (text.contains('network') ||
+        text.contains('timeout') ||
+        text.contains('socket')) {
+      return 'error_bbdown_network';
+    }
+    return 'error_bbdown_unknown';
   }
 
   @visibleForTesting

@@ -406,6 +406,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ctx_copy_name => 'Copy song name';
 
   @override
+  String get ctx_add_to_playlist => 'Add to playlist';
+
+  @override
+  String get ctx_delete_song_directory => 'Delete song directory';
+
+  @override
+  String get ctx_clear_selection => 'Clear selection';
+
+  @override
+  String ctx_selected_count(int count) {
+    return '$count selected';
+  }
+
+  @override
   String get ctx_delete_config => 'Delete config';
 
   @override
@@ -429,6 +443,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get common_delete => 'Delete';
+
+  @override
+  String get dialog_delete_song_dirs_title => 'Delete song directories?';
+
+  @override
+  String dialog_delete_song_dirs_content(int count) {
+    return 'This will delete $count selected song directories and cannot be undone.';
+  }
 
   @override
   String get mini_player_stop => 'Stop playback';
@@ -458,6 +480,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snack_video_download_enqueued => 'Added to download queue';
 
   @override
+  String snack_add_to_playlist_not_ready(int count) {
+    return 'Add to playlist is not wired yet ($count items)';
+  }
+
+  @override
+  String snack_batch_result(int success, int failed) {
+    return 'Done: success $success / failed $failed';
+  }
+
+  @override
+  String snack_batch_action_failed(String error) {
+    return 'Batch action failed: $error';
+  }
+
+  @override
   String get search_tooltip_download => 'Download';
 
   @override
@@ -472,7 +509,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get search_bbdown_missing_fallback =>
-      'BBDown is not installed. Fallback to yt-dlp is active. Install BBDown to enable the dedicated Bilibili engine.';
+      'BBDown is not installed. Please download it and finish login in Settings before using Bilibili search.';
 
   @override
   String get search_tooltip_play => 'Play in app';
@@ -542,6 +579,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playlist_filter_unconfigured => 'Show unconfigured only';
+
+  @override
+  String get playlist_delete_title => 'Delete playlist entries';
+
+  @override
+  String playlist_delete_content(int count) {
+    return 'This will remove $count selected playlist entries.';
+  }
+
+  @override
+  String get playlist_delete_with_directory => 'Also delete song directories';
+
+  @override
+  String get playlist_delete_no_directory_hint =>
+      'Selected entries have no local song directory; only playlist entries will be removed.';
+
+  @override
+  String get playlist_move_to_playlist => 'Move to playlist';
+
+  @override
+  String get playlist_picker_search_hint => 'Search playlist name';
+
+  @override
+  String get playlist_picker_empty => 'No playlist found';
+
+  @override
+  String get playlist_picker_current_disabled =>
+      'Current playlist cannot be the move target';
 
   @override
   String get playlist_list_title => 'Playlists';
