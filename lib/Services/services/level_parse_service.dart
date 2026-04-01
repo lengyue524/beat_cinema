@@ -122,7 +122,11 @@ class LevelParseService {
     final stat = Directory(levelRoot).statSync();
 
     if (infoFile == null || !infoFile.existsSync()) {
-      return _fallbackFromDirName(dirPath, stat.modified);
+      return _fallbackFromDirName(
+        levelRoot,
+        stat.modified,
+        mapHash: includeMapHash ? _computeLevelHash(levelRoot) : '',
+      );
     }
 
     try {
@@ -171,11 +175,19 @@ class LevelParseService {
         videoStatus: _resolveVideoStatus(levelRoot, cinemaConfig),
       );
     } catch (_) {
-      return _fallbackFromDirName(dirPath, stat.modified);
+      return _fallbackFromDirName(
+        levelRoot,
+        stat.modified,
+        mapHash: includeMapHash ? _computeLevelHash(levelRoot) : '',
+      );
     }
   }
 
-  static LevelMetadata _fallbackFromDirName(String dirPath, DateTime modified) {
+  static LevelMetadata _fallbackFromDirName(
+    String dirPath,
+    DateTime modified, {
+    String mapHash = '',
+  }) {
     final dirName = p.basename(dirPath);
     final parts = dirName.split(' ');
     final name = parts.length > 1 ? parts.sublist(1).join(' ') : dirName;
@@ -185,6 +197,7 @@ class LevelParseService {
       songName: name,
       parseStatus: ParseStatus.failed,
       lastModified: modified,
+      mapHash: mapHash,
     );
   }
 
@@ -229,7 +242,7 @@ class LevelParseService {
 
       if (bytes.length == 0) return '';
       final digest = sha1.convert(bytes.takeBytes());
-      return digest.toString().toUpperCase();
+      return digest.toString().toLowerCase();
     } catch (_) {
       return '';
     }
@@ -244,7 +257,7 @@ class LevelParseService {
     ).firstMatch(dirName);
     final hash = match?.group(1);
     if (hash == null || hash.isEmpty) return null;
-    return hash.toUpperCase();
+    return hash.toLowerCase();
   }
 
   static List<String> _resolveBeatmapOrderFromInfo(List<int> infoBytes) {

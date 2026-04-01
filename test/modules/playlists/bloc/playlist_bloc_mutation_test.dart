@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:beat_cinema/Modules/Playlists/bloc/playlist_bloc.dart';
 import 'package:beat_cinema/Services/services/atomic_file_service.dart';
 import 'package:beat_cinema/Services/services/beatsaver_download_service.dart';
+import 'package:beat_cinema/Common/constants.dart';
+import 'package:beat_cinema/Services/services/level_parse_service.dart';
 import 'package:beat_cinema/Services/services/playlist_hash_index_cache_service.dart';
 import 'package:beat_cinema/models/level_metadata.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -330,6 +332,120 @@ void main() {
         final loaded = bloc.state as PlaylistLoaded;
         expect(loaded.actionNotice?.type, 'cover');
         expect(loaded.actionNotice?.failedCount, 0);
+        await bloc.close();
+      } finally {
+        if (await root.exists()) {
+          await root.delete(recursive: true);
+        }
+      }
+    });
+
+    test('add levels to playlist uses folder short key and map hash', () async {
+      final root = await Directory.systemTemp.createTemp('playlist_add_levels_');
+      try {
+        final targetPath = await _writePlaylistFile(
+          root.path,
+          'target.bplist',
+          songs: const [],
+        );
+        final level = LevelMetadata(
+          levelPath: p.join(
+            root.path,
+            'Beat Saber_Data',
+            'CustomLevels',
+            '29193 (Hana no Tou - mikuri)',
+          ),
+          songName: 'Hana no Tou',
+          mapHash: '530b5c4aeb82819711e6c408ba996d99fc87e736',
+          difficulties: const ['ExpertPlus'],
+          lastModified: DateTime(2026, 3, 1),
+        );
+        final bloc = PlaylistBloc(
+          beatSaverDownloadService: _FakeBeatSaverDownloadService(),
+          hashIndexCacheService: _FakeHashIndexCacheService(),
+        );
+        bloc.add(LoadPlaylistsEvent(root.path, [level]));
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+
+        bloc.add(AddLevelsToPlaylistEvent(
+          levels: [level],
+          targetPlaylistPath: targetPath,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+
+        final targetMap = json.decode(await File(targetPath).readAsString())
+            as Map<String, dynamic>;
+        final songs = (targetMap['songs'] as List).cast<Map<String, dynamic>>();
+        expect(songs.length, 1);
+        expect((songs.first['key'] as String).toLowerCase(), '29193');
+        expect(
+          (songs.first['hash'] as String).toLowerCase(),
+          '530b5c4aeb82819711e6c408ba996d99fc87e736',
+        );
+        expect(songs.first.containsKey('difficulties'), isFalse);
+        await bloc.close();
+      } finally {
+        if (await root.exists()) {
+          await root.delete(recursive: true);
+        }
+      }
+    });
+
+    test('add levels recomputes hash when level mapHash is empty', () async {
+      final root = await Directory.systemTemp.createTemp('playlist_add_rehash_');
+      try {
+        final targetPath = await _writePlaylistFile(
+          root.path,
+          'target.bplist',
+          songs: const [],
+        );
+        final levelDir = Directory(
+          p.join(
+            root.path,
+            'Beat Saber_Data',
+            'CustomLevels',
+            '29193 (Hana no Tou - mikuri)',
+          ),
+        )..createSync(recursive: true);
+        File(p.join(levelDir.path, Constants.customLevelInfoName))
+            .writeAsStringSync(json.encode({
+          '_songName': 'Hana no Tou',
+          '_difficultyBeatmapSets': [],
+        }));
+        final expected = await LevelParseService().parseSingleLevel(levelDir.path);
+        expect(expected, isNotNull);
+        expect(expected!.mapHash, isNotEmpty);
+
+        final level = LevelMetadata(
+          levelPath: levelDir.path,
+          songName: 'Hana no Tou',
+          mapHash: '',
+          lastModified: DateTime(2026, 3, 1),
+        );
+        final bloc = PlaylistBloc(
+          beatSaverDownloadService: _FakeBeatSaverDownloadService(),
+          hashIndexCacheService: _FakeHashIndexCacheService(),
+        );
+        bloc.add(LoadPlaylistsEvent(root.path, [level]));
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+
+        bloc.add(AddLevelsToPlaylistEvent(
+          levels: [level],
+          targetPlaylistPath: targetPath,
+        ));
+        await Future<void>.delayed(const Duration(milliseconds: 160));
+
+        final targetMap = json.decode(await File(targetPath).readAsString())
+            as Map<String, dynamic>;
+        final songs = (targetMap['songs'] as List).cast<Map<String, dynamic>>();
+        expect(songs.length, 1);
+        expect((songs.first['key'] as String).toLowerCase(), '29193');
+        expect(
+          (songs.first['hash'] as String).toLowerCase(),
+          expected.mapHash.toLowerCase(),
+        );
+        expect((songs.first['hash'] as String).toLowerCase(),
+            isNot('29193 (hana no tou - mikuri)'));
         await bloc.close();
       } finally {
         if (await root.exists()) {

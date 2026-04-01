@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:beat_cinema/Common/constants.dart';
 import 'package:beat_cinema/Services/services/level_parse_service.dart';
+import 'package:beat_cinema/models/level_metadata.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -59,7 +60,22 @@ void main() {
 
     final result = await service.parseSingleLevel(levelDir.path);
     expect(result, isNotNull);
-    expect(result!.mapHash, rawHash);
+    expect(result!.mapHash, rawHash.toLowerCase());
+  });
+
+  test('parseSingleLevel keeps computed hash when info parse fails', () async {
+    final levelDir = Directory(p.join(tempRoot.path, 'broken_level'))
+      ..createSync(recursive: true);
+    final infoFile = File(p.join(levelDir.path, Constants.customLevelInfoName));
+    infoFile.writeAsStringSync('{ invalid json ');
+    final easyFile = File(p.join(levelDir.path, 'EasyStandard.dat'));
+    easyFile.writeAsStringSync('dummy beatmap');
+
+    final result = await service.parseSingleLevel(levelDir.path);
+    expect(result, isNotNull);
+    expect(result!.parseStatus, ParseStatus.failed);
+    expect(result.mapHash, isNotEmpty);
+    expect(RegExp(r'^[a-f0-9]{40}$').hasMatch(result.mapHash), isTrue);
   });
 
   test('parseSingleLevel can skip hash computation when disabled', () async {

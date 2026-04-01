@@ -583,7 +583,29 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
       return;
     }
     final targetInfo = _toPlaylistFileInfo(targetPath, targetMap);
-    final incoming = event.levels.map(_playlistSongFromLevel).toList(growable: false);
+    final incoming = <PlaylistSong>[];
+    var resolveFailed = 0;
+    final resolveFailures = <String>[];
+    for (final level in event.levels) {
+      final song = await _playlistSongFromLevelAsync(level);
+      if (song == null) {
+        resolveFailed++;
+        resolveFailures.add(level.songName.trim().isNotEmpty
+            ? level.songName
+            : level.levelPath);
+        continue;
+      }
+      incoming.add(song);
+    }
+    if (incoming.isEmpty) {
+      _emitActionFailure(
+        emit,
+        event.levels.length,
+        '无法计算歌曲哈希，未写入歌单',
+        type: 'add',
+      );
+      return;
+    }
     final merged = _mergeSongsWithoutDuplicates(targetInfo.songs, incoming);
     try {
       await _writePlaylistSongs(
@@ -605,8 +627,11 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
     emit(_buildLoadedState(
       actionNotice: PlaylistActionNotice(
         serial: _actionNoticeSerial,
-        successCount: event.levels.length,
-        failedCount: 0,
+        successCount: incoming.length,
+        failedCount: resolveFailed,
+        failureSummary: resolveFailures.isEmpty
+            ? null
+            : '哈希计算失败：${resolveFailures.take(3).join('、')}',
         type: 'add',
       ),
     ));
@@ -753,9 +778,6 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
         'key': song.key,
         'hash': song.hash,
         if ((song.songName ?? '').trim().isNotEmpty) 'songName': song.songName,
-        'difficulties': song.difficulties
-            .map((name) => <String, dynamic>{'name': name})
-            .toList(growable: false),
       };
     }).toList(growable: false);
     await _atomicFileService.writeString(
@@ -825,14 +847,43 @@ class PlaylistBloc extends Bloc<PlaylistEvent, PlaylistState> {
 
   PlaylistSong _playlistSongFromLevel(LevelMetadata level) {
     final mapHash = level.mapHash.trim().toLowerCase();
-    final fallback = p.basename(level.levelPath).trim().toLowerCase();
-    final identity = mapHash.isNotEmpty ? mapHash : fallback;
+    final folderName = p.basename(level.levelPath).trim().toLowerCase();
+    final hash = mapHash;
+    final shortKey = _deriveShortKeyFromFolderName(folderName);
+    final key = shortKey.isNotEmpty ? shortKey : hash;
     return PlaylistSong(
-      key: identity,
-      hash: identity,
+      key: key,
+      hash: hash,
       songName: level.songName,
       difficulties: level.difficulties,
     );
+  }
+
+  Future<PlaylistSong?> _playlistSongFromLevelAsync(LevelMetadata level) async {
+    var target = level;
+    if (target.mapHash.trim().isEmpty) {
+      final parsed = await _levelParseService.parseSingleLevel(
+        target.levelPath,
+        includeMapHash: true,
+      );
+      if (parsed != null && parsed.mapHash.trim().isNotEmpty) {
+        target = target.copyWith(mapHash: parsed.mapHash.trim().toLowerCase());
+      }
+    }
+    if (target.mapHash.trim().isEmpty) {
+      return null;
+    }
+    return _playlistSongFromLevel(target);
+  }
+
+  String _deriveShortKeyFromFolderName(String folderName) {
+    final normalized = folderName.trim().toLowerCase();
+    if (normalized.isEmpty) return '';
+    final first = normalized.split(RegExp(r'[\s(]')).first.trim();
+    if (first.isEmpty) return '';
+    // "CustomLevel<hash>" is not a short key; fallback to hash.
+    if (first.startsWith('customlevel')) return '';
+    return first;
   }
 
   String _sanitizePlaylistFileName(String input) {
