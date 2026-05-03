@@ -78,6 +78,36 @@ void main() {
     expect(RegExp(r'^[a-f0-9]{40}$').hasMatch(result.mapHash), isTrue);
   });
 
+  test('parseSingleLevel parses v4 info schema', () async {
+    final levelDir = Directory(p.join(tempRoot.path, 'v4_level'))
+      ..createSync(recursive: true);
+    final infoFile = File(p.join(levelDir.path, Constants.customLevelInfoName));
+    final info = {
+      'version': '4.0.1',
+      'song': {
+        'title': 'Bubble',
+        'subTitle': 'Sub',
+        'author': 'Yorushika',
+      },
+      'coverImageFilename': 'cover.jpg',
+      'difficultyBeatmaps': [
+        {
+          'difficulty': 'ExpertPlus',
+          'beatmapDataFilename': 'ExpertPlus.dat',
+        },
+      ],
+    };
+    infoFile.writeAsStringSync(json.encode(info));
+
+    final result = await service.parseSingleLevel(levelDir.path);
+    expect(result, isNotNull);
+    expect(result!.songName, 'Bubble');
+    expect(result.songSubName, 'Sub');
+    expect(result.songAuthorName, 'Yorushika');
+    expect(result.coverImageFilename, 'cover.jpg');
+    expect(result.difficulties, contains('ExpertPlus'));
+  });
+
   test('parseSingleLevel can skip hash computation when disabled', () async {
     const rawHash = '0B75C8EE24A8406D4E43B3C38A5A3E793518F7D0';
     final levelDir = Directory(p.join(tempRoot.path, 'CustomLevel$rawHash'))

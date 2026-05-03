@@ -12,11 +12,15 @@ class DifficultyBeatmapSet {
   });
 
   factory DifficultyBeatmapSet.fromMap(Map<String, dynamic> data) {
+    final beatmaps = (data['_difficultyBeatmaps'] ?? data['difficultyBeatmaps'])
+        as List<dynamic>?;
     return DifficultyBeatmapSet(
-      beatmapCharacteristicName: data['_beatmapCharacteristicName'] as String?,
-      difficultyBeatmaps: (data['_difficultyBeatmaps'] as List<dynamic>?)
-          ?.map((e) => DifficultyBeatmap.fromMap(e as Map<String, dynamic>))
-          .toList(),
+      beatmapCharacteristicName: (data['_beatmapCharacteristicName'] ??
+          data['beatmapCharacteristicName']) as String?,
+      difficultyBeatmaps: beatmaps
+          ?.whereType<Map<String, dynamic>>()
+          .map(DifficultyBeatmap.fromMap)
+          .toList(growable: false),
     );
   }
 

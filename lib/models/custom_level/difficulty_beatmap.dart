@@ -17,15 +17,30 @@ class DifficultyBeatmap {
 
   factory DifficultyBeatmap.fromMap(Map<String, dynamic> data) {
     return DifficultyBeatmap(
-      difficulty: data['_difficulty'] as String?,
-      difficultyRank: data['_difficultyRank'] as int?,
-      beatmapFilename: data['_beatmapFilename'] as String?,
-      noteJumpMovementSpeed:
-          (data['_noteJumpMovementSpeed'] as num?)?.toDouble(),
-      noteJumpStartBeatOffset:
-          (data['_noteJumpStartBeatOffset'] as num?)?.toDouble(),
+      difficulty:
+          _stringOf(data['_difficulty']) ?? _stringOf(data['difficulty']),
+      difficultyRank:
+          _intOf(data['_difficultyRank']) ?? _intOf(data['difficultyRank']),
+      beatmapFilename: _stringOf(data['_beatmapFilename']) ??
+          _stringOf(data['beatmapFilename']) ??
+          _stringOf(data['beatmapDataFilename']),
+      noteJumpMovementSpeed: _doubleOf(data['_noteJumpMovementSpeed']) ??
+          _doubleOf(data['noteJumpMovementSpeed']),
+      noteJumpStartBeatOffset: _doubleOf(data['_noteJumpStartBeatOffset']) ??
+          _doubleOf(data['noteJumpStartBeatOffset']),
     );
   }
+
+  static String? _stringOf(dynamic value) => value is String ? value : null;
+
+  static int? _intOf(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return null;
+  }
+
+  static double? _doubleOf(dynamic value) =>
+      value is num ? value.toDouble() : null;
 
   Map<String, dynamic> toMap() => {
         '_difficulty': difficulty,

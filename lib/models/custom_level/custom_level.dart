@@ -39,29 +39,76 @@ class CustomLevel {
     this.difficultyBeatmapSets,
   });
 
-  factory CustomLevel.fromMap(Map<String, dynamic> data) => CustomLevel(
-        version: data['_version'] as String?,
-        songName: data['_songName'] as String?,
-        songSubName: data['_songSubName'] as String?,
-        songAuthorName: data['_songAuthorName'] as String?,
-        levelAuthorName: data['_levelAuthorName'] as String?,
-        beatsPerMinute: (data['_beatsPerMinute'] as num?)?.toDouble(),
-        songTimeOffset: (data['_songTimeOffset'] as num?)?.toDouble(),
-        shuffle: (data['_shuffle'] as num?)?.toDouble(),
-        shufflePeriod: (data['_shufflePeriod'] as num?)?.toDouble(),
-        previewStartTime: (data['_previewStartTime'] as num?)?.toDouble(),
-        previewDuration: (data['_previewDuration'] as num?)?.toDouble(),
-        songFilename: data['_songFilename'] as String?,
-        coverImageFilename: data['_coverImageFilename'] as String?,
-        environmentName: data['_environmentName'] as String?,
-        allDirectionsEnvironmentName:
-            data['_allDirectionsEnvironmentName'] as String?,
-        difficultyBeatmapSets: (data['_difficultyBeatmapSets']
-                as List<dynamic>?)
-            ?.map(
-                (e) => DifficultyBeatmapSet.fromMap(e as Map<String, dynamic>))
-            .toList(),
-      );
+  factory CustomLevel.fromMap(Map<String, dynamic> data) {
+    final songNode = data['song'];
+    final song = songNode is Map<String, dynamic> ? songNode : null;
+    final sets = _resolveDifficultyBeatmapSets(data);
+    return CustomLevel(
+      version: _stringOf(data['_version']) ?? _stringOf(data['version']),
+      songName: _stringOf(data['_songName']) ?? _stringOf(song?['title']),
+      songSubName:
+          _stringOf(data['_songSubName']) ?? _stringOf(song?['subTitle']),
+      songAuthorName:
+          _stringOf(data['_songAuthorName']) ?? _stringOf(song?['author']),
+      levelAuthorName: _stringOf(data['_levelAuthorName']) ??
+          _stringOf(data['levelAuthorName']),
+      beatsPerMinute: _doubleOf(data['_beatsPerMinute']) ??
+          _doubleOf(data['beatsPerMinute']),
+      songTimeOffset: _doubleOf(data['_songTimeOffset']) ??
+          _doubleOf(data['songTimeOffset']),
+      shuffle: _doubleOf(data['_shuffle']) ?? _doubleOf(data['shuffle']),
+      shufflePeriod:
+          _doubleOf(data['_shufflePeriod']) ?? _doubleOf(data['shufflePeriod']),
+      previewStartTime: _doubleOf(data['_previewStartTime']) ??
+          _doubleOf(data['previewStartTime']),
+      previewDuration: _doubleOf(data['_previewDuration']) ??
+          _doubleOf(data['previewDuration']),
+      songFilename: _stringOf(data['_songFilename']) ??
+          _stringOf(data['songFilename']) ??
+          _stringOf(data['audio']),
+      coverImageFilename: _stringOf(data['_coverImageFilename']) ??
+          _stringOf(data['coverImageFilename']),
+      environmentName: _stringOf(data['_environmentName']) ??
+          _stringOf(data['environmentName']),
+      allDirectionsEnvironmentName:
+          _stringOf(data['_allDirectionsEnvironmentName']) ??
+              _stringOf(data['allDirectionsEnvironmentName']),
+      difficultyBeatmapSets: sets,
+    );
+  }
+
+  static List<DifficultyBeatmapSet>? _resolveDifficultyBeatmapSets(
+    Map<String, dynamic> data,
+  ) {
+    final legacySets = data['_difficultyBeatmapSets'] as List<dynamic>?;
+    if (legacySets != null) {
+      return legacySets
+          .whereType<Map<String, dynamic>>()
+          .map(DifficultyBeatmapSet.fromMap)
+          .toList(growable: false);
+    }
+
+    final v4Beatmaps = data['difficultyBeatmaps'] as List<dynamic>?;
+    if (v4Beatmaps == null || v4Beatmaps.isEmpty) {
+      return null;
+    }
+    return [
+      DifficultyBeatmapSet.fromMap(<String, dynamic>{
+        '_beatmapCharacteristicName': 'Standard',
+        '_difficultyBeatmaps': v4Beatmaps,
+      }),
+    ];
+  }
+
+  static String? _stringOf(dynamic value) {
+    if (value is String) return value;
+    return null;
+  }
+
+  static double? _doubleOf(dynamic value) {
+    if (value is num) return value.toDouble();
+    return null;
+  }
 
   Map<String, dynamic> toMap() => {
         '_version': version,
