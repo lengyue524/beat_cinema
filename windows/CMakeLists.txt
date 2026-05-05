@@ -58,46 +58,41 @@ add_subdirectory("runner")
 include(flutter/generated_plugins.cmake)
 
 
-# === Full LGPL libmpv override (enables audio filters: pan, lavfi, etc.) ===
-# The default media_kit build strips audio filters for size. We replace it with
-# zhongfly/mpv-winbuild's LGPL build that includes them.
-set(CUSTOM_LIBMPV_7Z "mpv-dev-lgpl-x86_64-20260320-git-7b1ee86.7z")
-set(CUSTOM_LIBMPV_URL "https://github.com/zhongfly/mpv-winbuild/releases/download/2026-03-20-7b1ee86/${CUSTOM_LIBMPV_7Z}")
-set(CUSTOM_LIBMPV_ARCHIVE "${CMAKE_BINARY_DIR}/${CUSTOM_LIBMPV_7Z}")
-set(CUSTOM_LIBMPV_DIR "${CMAKE_BINARY_DIR}/libmpv-full")
-
-if(NOT EXISTS "${CUSTOM_LIBMPV_ARCHIVE}")
-  message(STATUS "Downloading full LGPL libmpv from zhongfly/mpv-winbuild...")
-  file(DOWNLOAD
-    "${CUSTOM_LIBMPV_URL}" "${CUSTOM_LIBMPV_ARCHIVE}"
-    SHOW_PROGRESS
-    EXPECTED_HASH SHA256=305643e2b4630530c944a12cb9e535bab7156621b749f09b2aea4482dfaa4bd9
-  )
-endif()
-
-if(NOT EXISTS "${CUSTOM_LIBMPV_DIR}/libmpv-2.dll")
-  make_directory("${CUSTOM_LIBMPV_DIR}")
-  execute_process(
-    COMMAND "${CMAKE_COMMAND}" -E tar xf "${CUSTOM_LIBMPV_ARCHIVE}"
-    WORKING_DIRECTORY "${CUSTOM_LIBMPV_DIR}"
-  )
-endif()
-
-# Overwrite the stripped DLL in the plugin's extraction directory at configure time
-# so the normal PLUGIN_BUNDLED_LIBRARIES install picks up the full version.
-if(EXISTS "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll")
-  file(COPY_FILE
-    "${CUSTOM_LIBMPV_DIR}/libmpv-2.dll"
-    "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll"
-  )
-endif()
-
-# Also override at build time (handles first build where plugin extracts after configure).
-add_custom_target(override_libmpv ALL
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-    "${CUSTOM_LIBMPV_DIR}/libmpv-2.dll"
-    "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll"
+# === Local libmpv override (no network download) ===
+# Place your full LGPL libmpv DLL in:
+#   windows/third_party/libmpv/libmpv-2.dll
+# Build will fail fast if this file is missing.
+option(USE_LOCAL_LIBMPV "Override media_kit libmpv with local full LGPL build" ON)
+set(LOCAL_LIBMPV_DLL
+  "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libmpv/libmpv-2.dll"
+  CACHE FILEPATH "Path to local libmpv-2.dll"
 )
+
+if(USE_LOCAL_LIBMPV)
+  if(NOT EXISTS "${LOCAL_LIBMPV_DLL}")
+    message(FATAL_ERROR
+      "USE_LOCAL_LIBMPV=ON but local libmpv is missing:\n"
+      "  ${LOCAL_LIBMPV_DLL}\n"
+      "Please put libmpv-2.dll there (or set LOCAL_LIBMPV_DLL to your local path)."
+    )
+  endif()
+
+  # Overwrite the stripped DLL in the plugin's extraction directory at configure time
+  # so the normal PLUGIN_BUNDLED_LIBRARIES install picks up the full version.
+  if(EXISTS "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll")
+    file(COPY_FILE
+      "${LOCAL_LIBMPV_DLL}"
+      "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll"
+    )
+  endif()
+
+  # Also override at build time (handles first build where plugin extracts after configure).
+  add_custom_target(override_libmpv ALL
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+      "${LOCAL_LIBMPV_DLL}"
+      "${CMAKE_BINARY_DIR}/libmpv/libmpv-2.dll"
+  )
+endif()
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can
